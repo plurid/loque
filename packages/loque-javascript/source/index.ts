@@ -7,6 +7,10 @@
     import Extractor, {
         handleExtraction,
     } from './extractor';
+
+    import Updater, {
+        handleUpdate,
+    } from './updater';
     // #endregion internal
 // #endregion imports
 
@@ -17,6 +21,7 @@
 const loque = {
     locate: parseLocator,
     extract: handleExtraction,
+    update: handleUpdate,
 };
 // #endregion module
 
@@ -24,8 +29,9 @@ const loque = {
 
 // #region exports
 export {
-    Extractor,
     Locator,
+    Extractor,
+    Updater,
 };
 
 
