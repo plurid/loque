@@ -15,12 +15,12 @@
 
 
 <h3 align="center">
-    Data Locator and Extractor
+    Object Data Locator, Extractor, Updater
 </h3>
 
 
 
-`loque` provides utilities for locating and extracting data from object-like entities (maps and lists) based on a query.
+`loque` provides utility for locating, extracting, and updating data from object-like structures (arbitrarily nested maps and lists) based on a querying syntax.
 
 
 ### Contents
