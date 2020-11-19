@@ -32,7 +32,72 @@
 
 ## About
 
+Given a collection of data, `loque` selects, retrieves, and modifies values.
 
+Example:
+
+``` typescript
+import loque from '@plurid/loque';
+
+
+
+const data = {
+    records: [
+        {
+            ownedBy: 'A',
+            id: '1',
+            value: 'one',
+        },
+        {
+            ownedBy: 'B',
+            id: '2',
+            value: 'two',
+        },
+        {
+            ownedBy: 'A',
+            id: '3',
+            value: 'three',
+        },
+        {
+            ownedBy: 'A',
+            id: '4',
+            value: 'four',
+        },
+    ],
+};
+
+
+const main = () => {
+    const locatorRecordOne = loque.locate(
+        'records.id:1',
+    );
+
+    const recordOne = loque.extract(
+        locatorRecordOne,
+        data,
+    );
+
+    const recordsOneTwo = loque.extract(
+        'records . id:1 & id:2',
+        data,
+    );
+
+    const newData = loque.update(
+        'records.id:3',
+        data,
+        {
+            value: 'three-modified',
+        },
+    );
+
+    const lastTwo = loque.extract(
+        'records.ownedBy:A |last 4|',
+        newData,
+    );
+}
+
+main();
+```
 
 
 
