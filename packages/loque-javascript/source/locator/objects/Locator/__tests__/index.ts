@@ -14,7 +14,7 @@
 // #region module
 describe('parseLocator', () => {
     it.only('collection', () => {
-        const location = 'one.k<v';
+        const location = 'one';
         const locator = new Locator();
         const data = locator.parse(location);
 

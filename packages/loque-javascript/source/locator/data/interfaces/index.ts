@@ -3,6 +3,15 @@ export interface LocatorDocument {
     type: 'document',
     key: string,
     value: string,
+    comparison: 'equal' | 'greater_than' | 'less_than';
+    cursor?: LocatorCursor;
+}
+
+
+export interface LocatorCursor {
+    id?: string;
+    value?: number;
+    modifier?: 'all' | 'first' | 'last' | 'above' | 'below';
 }
 
 
