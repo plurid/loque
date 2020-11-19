@@ -68,6 +68,12 @@ class Scanner {
             case ':':
                 this.addToken(TokenType.COLON);
                 break;
+            case '<':
+                this.addToken(TokenType.LESS_THAN);
+                break;
+            case '>':
+                this.addToken(TokenType.GREATER_THAN);
+                break;
             case '&':
                 this.addToken(TokenType.AMPERSAND);
                 break;

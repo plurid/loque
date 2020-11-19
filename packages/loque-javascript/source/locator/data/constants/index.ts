@@ -3,6 +3,17 @@ const nonAlphanumericCharacters = [
     ' ',
     '\n',
     ',',
+    '.',
+    ':',
+    '<',
+    '>',
+    '&',
+    '|',
+    '!',
+    '{',
+    '}',
+    '/',
+    '*',
 ];
 // #endregion module
 
