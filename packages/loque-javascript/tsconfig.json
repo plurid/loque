@@ -14,21 +14,15 @@
 
         "baseUrl": ".",
         "paths": {
-            "#cli/*": [
-                "./source/cli/*"
+            "#extractor/*": [
+                "./source/extractor/*"
             ],
-            "#commands/*": [
-                "./source/commands/*"
+            "#locator/*": [
+                "./source/locator/*"
             ],
-            "#data/*": [
-                "./source/data/*"
-            ],
-            "#objects/*": [
-                "./source/objects/*"
-            ],
-            "#services/*": [
-                "./source/services/*"
-            ],
+            "#updater/*": [
+                "./source/updater/*"
+            ]
         },
 
 
