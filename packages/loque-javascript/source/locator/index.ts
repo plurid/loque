@@ -1,21 +1,12 @@
 // #region imports
     // #region internal
-    import Locator from './Locator';
+    import Locator from './objects/Locator';
+
+    import {
+        parseLocator,
+    } from './utilities';
     // #endregion internal
 // #endregion imports
-
-
-
-// #region module
-const parseLocator = (
-    value: string,
-) => {
-    const locator = new Locator();
-    const data = locator.parse(value);
-
-    return data;
-}
-// #endregion module
 
 
 
@@ -23,4 +14,7 @@ const parseLocator = (
 export {
     parseLocator,
 };
+
+
+export default Locator;
 // #endregion exports

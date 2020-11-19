@@ -1,25 +1,12 @@
 // #region imports
     // #region internal
-    import Extractor from './Extractor';
+    import Extractor from './objects/Extractor';
+
+    import {
+        handleExtraction,
+    } from './utilities';
     // #endregion internal
 // #endregion imports
-
-
-
-// #region module
-const handleExtraction = (
-    data: any,
-    locator: any,
-) => {
-    const extractor = new Extractor(
-        data,
-        locator,
-    );
-    const result = extractor.extract();
-
-    return result;
-}
-// #endregion module
 
 
 
@@ -27,4 +14,7 @@ const handleExtraction = (
 export {
     handleExtraction,
 };
+
+
+export default Extractor;
 // #endregion exports
