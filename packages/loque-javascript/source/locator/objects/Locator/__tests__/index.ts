@@ -3,7 +3,7 @@
     import {
         LocatorCollection,
         LocatorDocument,
-    } from '#data/interfaces';
+    } from '#locator/data/interfaces';
 
     import Locator from '../';
     // #endregion external
