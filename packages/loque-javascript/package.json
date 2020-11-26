@@ -1,6 +1,6 @@
 {
     "name": "@plurid/loque",
-    "version": "0.0.0",
+    "version": "0.0.0-0",
     "description": "Human-Readable Database Based on Deon",
     "keywords": [
         "database",
@@ -16,7 +16,7 @@
         "email": "source@plurid.com",
         "url": "https://github.com/plurid/loque/issues"
     },
-    "homepage": "https://github.com/plurid/loque/blob/master/packages/loque-cli/README.md",
+    "homepage": "https://github.com/plurid/loque/blob/master/packages/loque-javascript/README.md",
     "publishConfig": {
         "access": "public"
     },
@@ -33,15 +33,15 @@
         "test": "jest -c ./configurations/jest.config.js --coverage --verbose  ./source",
         "test.suite": "jest -c ./configurations/jest.config.js --coverage --verbose",
         "start": "rollup -c ./scripts/rollup.config.ts -w",
-        "build.removeTests": "rm -rf `find ./distribution/ -type d -name __tests__`",
-        "build.development": "rollup -c ./scripts/rollup.config.ts && yarn build.removeTests",
-        "build": "rollup -c ./scripts/rollup.config.ts && yarn build.removeTests",
+        "build.clean": "rm -rf `find ./distribution/ -type d -name __tests__`",
+        "build.development": "rollup -c ./scripts/rollup.config.ts && yarn build.clean",
+        "build.production": "rollup -c ./scripts/rollup.config.ts && yarn build.clean",
+        "build": "yarn build.production",
         "prebuild": "rm -rf distribution",
         "prepublishOnly": "yarn build"
     },
     "devDependencies": {
         "@rollup/plugin-commonjs": "^16.0.0",
-        "@rollup/plugin-json": "^4.1.0",
         "@types/node": "^14.14.8",
         "@typescript-eslint/eslint-plugin": "^4.8.1",
         "@typescript-eslint/parser": "^4.8.1",
