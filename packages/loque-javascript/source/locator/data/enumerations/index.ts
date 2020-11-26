@@ -15,6 +15,8 @@ export enum TokenType {
     KEY,
     VALUE,
 
+    AND, OR, NOT,
+
 
     // Keywords.
     FIRST, LAST,
