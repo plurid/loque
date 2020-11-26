@@ -46,53 +46,41 @@ class Parser {
         try {
             const current = this.peek();
 
-            // if (
-            //     current.type === TokenType.IMPORT
-            // ) {
-            //     return this.importStatement();
-            // }
+            if (
+                current.type === TokenType.SIGNIFIER
+            ) {
 
-            // if (
-            //     current.type === TokenType.INJECT
-            // ) {
-            //     return this.injectStatement();
-            // }
+            }
 
-            // if (
-            //     current.type === TokenType.STRING
-            // ) {
-            //     return this.handleString();
-            // }
+            if (
+                current.type === TokenType.COLLECTION
+            ) {
 
-            // if (
-            //     current.type === TokenType.IDENTIFIER
-            // ) {
-            //     return this.handleIdentifier();
-            // }
+            }
 
-            // if (
-            //     current.type === TokenType.LINK
-            // ) {
-            //     return this.handleLink();
-            // }
+            if (
+                current.type === TokenType.DOCUMENT
+            ) {
 
-            // if (
-            //     current.type == TokenType.SPREAD
-            // ) {
-            //     return this.handleSpread();
-            // }
+            }
+
+            if (
+                current.type === TokenType.CURSOR
+            ) {
+
+            }
+
+            if (
+                current.type === TokenType.KEY
+            ) {
+
+            }
 
             if (
                 current.type === TokenType.LEFT_CURLY_BRACKET
             ) {
-                return this.handleMap();
+                // return this.handleMap();
             }
-
-            // if (
-            //     current.type === TokenType.LEFT_SQUARE_BRACKET
-            // ) {
-            //     return this.handleList();
-            // }
 
             this.advance();
             return;

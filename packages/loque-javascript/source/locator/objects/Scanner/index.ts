@@ -30,7 +30,7 @@ class Scanner {
     private current: number = 0;
     private line: number = 1;
     private keywords: Record<string, TokenType>;
-    private deonError: any;
+    private loqueError: any;
 
     constructor(
         source: string,
@@ -38,9 +38,14 @@ class Scanner {
     ) {
         this.source = source;
         this.tokens = [];
-        this.deonError = error;
+        this.loqueError = error;
 
         this.keywords = {
+            first: TokenType.FIRST,
+            last: TokenType.LAST,
+            above: TokenType.ABOVE,
+            below: TokenType.BELOW,
+            all: TokenType.ALL,
         };
     }
 
@@ -145,18 +150,7 @@ class Scanner {
     }
 
     private dot() {
-        if (this.match('.')) {
-            if (this.match('.')) {
-                if (this.match('#')) {
-                } else {
-                    this.deonError(this.line, 'Can only spread leaflinks.');
-                }
-            } else {
-                this.signifier();
-            }
-        } else {
-            this.signifier();
-        }
+        this.signifier();
     }
 
     private slash() {
@@ -192,7 +186,6 @@ class Scanner {
 
         // See if the signifier is a reserved word.
         const text = this.source.substring(this.start, this.current);
-        console.log("text", text);
 
         let type = this.keywords[text];
 

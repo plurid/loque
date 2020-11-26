@@ -16,6 +16,12 @@ export enum TokenType {
     VALUE,
 
 
+    // Keywords.
+    FIRST, LAST,
+    ABOVE, BELOW,
+    ALL,
+
+
     EOF,
 }
 // #endregion module
