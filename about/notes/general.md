@@ -14,6 +14,9 @@ the `key` can be
 + greater than a value `key>value`
 
 
+a document can locate based on a cursor
+
+
 examples
 
     records.id:123      // from the collection records,
