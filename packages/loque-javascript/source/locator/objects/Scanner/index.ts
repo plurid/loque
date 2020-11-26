@@ -193,60 +193,17 @@ class Scanner {
             type = TokenType.SIGNIFIER;
         }
 
-        // switch (type) {
-        //     case TokenType.IMPORT: {
-        //         const inGroup = this.inGroup(this.tokens.length - 1);
+        switch (type) {
+            case TokenType.FIRST:
+            case TokenType.LAST:
+            case TokenType.ABOVE:
+            case TokenType.BELOW:
+            case TokenType.ALL: {
+                // check if in cursors
 
-        //         if (
-        //             inGroup
-        //             && inGroup !== 'LEAFLINK'
-        //         ) {
-        //             type = TokenType.SIGNIFIER;
-        //             break;
-        //         }
-
-        //         break;
-        //     }
-        //     case TokenType.INJECT: {
-        //         const inGroup = this.inGroup(this.tokens.length - 1);
-
-        //         if (
-        //             inGroup
-        //             && inGroup !== 'LEAFLINK'
-        //         ) {
-        //             type = TokenType.SIGNIFIER;
-        //             break;
-        //         }
-
-        //         break;
-        //     }
-        //     case TokenType.FROM: {
-        //         const inGroup = this.inGroup(this.tokens.length - 1);
-
-        //         if (
-        //             inGroup
-        //             && inGroup !== 'LEAFLINK'
-        //         ) {
-        //             type = TokenType.SIGNIFIER;
-        //             break;
-        //         }
-
-        //         break;
-        //     }
-        //     case TokenType.WITH: {
-        //         const inGroup = this.inGroup(this.tokens.length - 1);
-
-        //         if (
-        //             inGroup
-        //             && inGroup !== 'LEAFLINK'
-        //         ) {
-        //             type = TokenType.SIGNIFIER;
-        //             break;
-        //         }
-
-        //         break;
-        //     }
-        // }
+                break;
+            }
+        }
 
         this.addToken(type);
     }
