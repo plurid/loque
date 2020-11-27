@@ -43,6 +43,23 @@ describe('parseLocator', () => {
 
 
 
+    it('collection document', () => {
+        const location = `one.id:'two:special-char'`;
+        const locator = new Locator();
+        const data = locator.parse(location);
+
+        expect(data.length).toEqual(2);
+
+        expect(data[0].type).toEqual('collection');
+        expect(data[0].value).toEqual('one');
+
+        expect(data[1].type).toEqual('document');
+        expect((data[1] as LocatorDocument).key).toEqual('id');
+        expect(data[1].value).toEqual('two:special-char');
+    });
+
+
+
     it('collection document collection', () => {
         const location = 'one.id:two.three';
         const locator = new Locator();
