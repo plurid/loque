@@ -13,7 +13,7 @@
 
 // #region module
 describe('parseLocator', () => {
-    it.only('collection', () => {
+    it('collection', () => {
         const location = 'one';
         const locator = new Locator();
         const data = locator.parse(location);
@@ -39,6 +39,14 @@ describe('parseLocator', () => {
         expect(data[1].type).toEqual('document');
         expect((data[1] as LocatorDocument).key).toEqual('id');
         expect(data[1].value).toEqual('two');
+    });
+
+
+
+    it.only('collection document', () => {
+        const location = 'one.id:two | ab:cd & fg:he & a<b | c>d | f<=g | h>=j |first 2 above 5xz|';
+        const locator = new Locator();
+        const data = locator.parse(location);
     });
 
 

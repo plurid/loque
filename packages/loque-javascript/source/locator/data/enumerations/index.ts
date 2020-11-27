@@ -3,7 +3,7 @@ export enum TokenType {
     // Single-character tokens.
     DOT, COLON, AMPERSAND, PIPE, BANG,
     LEFT_CURLY_BRACKET, RIGHT_CURLY_BRACKET,
-    LESS_THAN, GREATER_THAN,
+    LESS, GREATER,
 
 
     // Entities.
@@ -11,11 +11,15 @@ export enum TokenType {
 
     COLLECTION,
     DOCUMENT,
-    CURSOR,
-    KEY,
-    VALUE,
+    KEY, VALUE,
+    CURSOR_START, CURSOR_END,
 
-    AND, OR, NOT,
+
+    // Relationships.
+    EQUAL, NOT_EQUAL,
+    LESS_THAN, GREATER_THAN,
+    LESS_EQUAL_THAN, GREATER_EQUAL_THAN,
+    AND, OR,
 
 
     // Keywords.

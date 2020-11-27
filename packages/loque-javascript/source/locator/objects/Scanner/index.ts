@@ -71,10 +71,10 @@ class Scanner {
                 this.addToken(TokenType.COLON);
                 break;
             case '<':
-                this.addToken(TokenType.LESS_THAN);
+                this.addToken(TokenType.LESS);
                 break;
             case '>':
-                this.addToken(TokenType.GREATER_THAN);
+                this.addToken(TokenType.GREATER);
                 break;
             case '&':
                 this.addToken(TokenType.AMPERSAND);
@@ -324,12 +324,15 @@ class Scanner {
     /**
      * Checks if the locator if is in cursor.
      *
-     * > `one.id:two |above ...` // returns `true`
-     * > `one.id:two | id:above ...` // returns `false`
-     * > `one.id:two | id:three |above ...` // returns `true`
+     * > `one.id:two |first ...` // returns `true`
+     * > `one.id:two | id:first ...` // returns `false`
+     * > `one.id:two | id:three |first ...` // returns `true`
      */
     private isInCursor() {
-        const tokens = this.tokens
+        const newTokens = [
+            ...this.tokens,
+        ];
+        const tokens = newTokens
             .reverse();
 
         for (const token of tokens) {
