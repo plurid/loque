@@ -9,15 +9,7 @@
     } from '../../data/enumerations';
 
     import Token from '../Token';
-
-    // import {
-    //     inGroupClassify,
-    // } from '../../utilities/general';
     // #endregion external
-
-
-    // #region internal
-    // #endregion internal
 // #endregion imports
 
 
@@ -94,9 +86,6 @@ class Scanner {
             case '}':
                 this.addToken(TokenType.RIGHT_CURLY_BRACKET);
                 break;
-            // case '.':
-            //     this.dot();
-            //     break;
             case '/':
                 this.slash();
                 break;
@@ -110,12 +99,9 @@ class Scanner {
                 // Ignore whitespace.
                 break;
 
-            // case '\'':
-            //     this.singlelineString();
-            //     break;
-            // case '`':
-            //     this.multilineString();
-            //     break;
+            case '\'':
+                this.apostrophe();
+                break;
             case '\n':
                 this.line++;
                 break;
@@ -174,6 +160,10 @@ class Scanner {
             // End of multiline comment.
             this.advance();
         }
+    }
+
+    private apostrophe() {
+
     }
 
     private signifier() {
