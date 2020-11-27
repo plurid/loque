@@ -83,7 +83,7 @@ const main = () => {
     const recordOne = loque.extract(
         locatorRecordOne,
         data,
-    );
+    ).data;
 
     // Extracted data obtained with locator string.
     // [
@@ -101,7 +101,7 @@ const main = () => {
     const recordsOneTwo = loque.extract(
         'records . id:1 & id:2',
         data,
-    );
+    ).data;
 
     // Updated data with locator string.
     // {
@@ -128,7 +128,7 @@ const main = () => {
     const lastTwo = loque.extract(
         'records.ownedBy:A |last 2|',
         newData,
-    );
+    ).data;
 
 
     const firstTwo = loque.extract(
@@ -137,12 +137,12 @@ const main = () => {
     );
 
     // Cursor index value of the last document.
-    const firstTwoCursor = firstTwo.loque.cursor;
+    const firstTwoCursor = firstTwo.cursor;
 
     const nextTwo = loque.extract(
         `records.ownedBy:A |first 2 above ${firstTwoCursor}|`,
         newData,
-    );
+    ).data;
 }
 
 main();
