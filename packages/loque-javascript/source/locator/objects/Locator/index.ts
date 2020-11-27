@@ -39,14 +39,14 @@ class Locator {
             this.error,
         );
         const tokens = scanner.scanTokens();
-        console.log('tokens', tokens);
+        // console.log('tokens', tokens);
 
         const parser = new Parser(
             tokens,
             this.error,
         );
         const statements = parser.parse();
-        console.log('statements', util.inspect(statements, {showHidden: false, depth: null}));
+        // console.log('statements', util.inspect(statements, {showHidden: false, depth: null}));
 
         if (this.hadError) {
             throw 'loque error';

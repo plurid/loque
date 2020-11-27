@@ -1,5 +1,8 @@
 // #region imports
     // #region external
+    import {
+        LocatorKey,
+    } from '../../data/interfaces';
     // import Token from '../Token';
     // #endregion external
 // #endregion imports
@@ -25,16 +28,13 @@ export interface Visitor<T> {
 
 export class CollectionStatement extends Statement {
     public name: string;
-    // public expression: Expression;
 
     constructor(
         name: string,
-        // expression: Expression,
     ) {
         super();
 
         this.name = name;
-        // this.expression = expression;
     }
 
     accept<T>(
@@ -46,17 +46,14 @@ export class CollectionStatement extends Statement {
 
 
 export class DocumentStatement extends Statement {
-    // public expression: Expression;
-    public keys: any;
+    public keys: LocatorKey[];
 
     constructor(
-        keys: any,
-        // expression: Expression,
+        keys: LocatorKey[],
     ) {
         super();
 
         this.keys = keys;
-        // this.expression = expression;
     }
 
     accept<T>(

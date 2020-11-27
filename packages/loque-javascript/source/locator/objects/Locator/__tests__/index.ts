@@ -43,7 +43,7 @@ describe('parseLocator', () => {
 
 
 
-    it.only('collection document', () => {
+    it('collection document', () => {
         // const location = 'one.id:two | ab:cd & fg:he & a<b | c>d | f<=g | h>=j |first 2 above 5xz|.three.id!:asd & d<5 & f<=2 & g>1 & h>=1.four';
         const location = 'one.id:two.three.id:four';
         const locator = new Locator();

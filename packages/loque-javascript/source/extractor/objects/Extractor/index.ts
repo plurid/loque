@@ -3,6 +3,8 @@
     import {
         parseLocator,
         LocatorStatements,
+        CollectionStatement,
+        DocumentStatement,
     } from '#locator/index';
     // #endregion external
 // #endregion imports
@@ -25,8 +27,30 @@ class Extractor<D> {
         this.data = data;
     }
 
-    public extract<E>() {
-        return {} as E;
+    public extract<E>(): E {
+        let collectionData;
+        let documents: any[] = [];
+
+        for (const locator of this.locator) {
+            if (locator instanceof CollectionStatement) {
+                collectionData = this.data[locator.name];
+                continue;
+            }
+
+            if (locator instanceof DocumentStatement) {
+                for (const document of collectionData) {
+                    for (const key of locator.keys) {
+                        if (document[key.key] === key.value) {
+                            documents.push(document);
+                        }
+                    }
+                }
+
+                continue;
+            }
+        }
+
+        return documents as any;
     }
 }
 // #endregion module
