@@ -41,6 +41,24 @@ class Identifier {
             const current = this.peek();
             const previous = this.previous();
 
+
+            // Collection
+            if (
+                (!previous || previous.type === TokenType.DOT)
+                && current.type === TokenType.SIGNIFIER
+                && (this.match(TokenType.DOT) || this.match(TokenType.EOF))
+            ) {
+                const collectionToken = this.tokenFrom(
+                    TokenType.COLLECTION,
+                    current,
+                );
+
+                pushAdvance(collectionToken);
+                continue;
+            }
+
+
+            // Document
             if (
                 previous
                 && current.type === TokenType.SIGNIFIER
@@ -128,6 +146,7 @@ class Identifier {
                 const lessEqualThanToken = this.tokenFrom(
                     TokenType.LESS_EQUAL_THAN,
                     current,
+                    '<=',
                 );
 
                 pushAdvance(lessEqualThanToken);
@@ -144,28 +163,13 @@ class Identifier {
                 const greaterEqualThanToken = this.tokenFrom(
                     TokenType.GREATER_EQUAL_THAN,
                     current,
+                    '>=',
                 );
 
                 pushAdvance(greaterEqualThanToken);
                 this.advance();
                 continue;
             }
-
-
-
-            if (
-                current.type === TokenType.SIGNIFIER
-                && (this.match(TokenType.DOT) || this.match(TokenType.EOF))
-            ) {
-                const collectionToken = this.tokenFrom(
-                    TokenType.COLLECTION,
-                    current,
-                );
-
-                pushAdvance(collectionToken);
-                continue;
-            }
-
 
             if (
                 previous
@@ -204,6 +208,7 @@ class Identifier {
                 const notEqualToken = this.tokenFrom(
                     TokenType.NOT_EQUAL,
                     current,
+                    '!:',
                 );
 
                 pushAdvance(notEqualToken);
@@ -250,10 +255,11 @@ class Identifier {
     private tokenFrom(
         type: TokenType,
         data: Token,
+        lexeme?: string,
     ) {
         const token = new Token(
             type,
-            data.lexeme,
+            lexeme || data.lexeme,
             data.literal,
             data.line,
         );
