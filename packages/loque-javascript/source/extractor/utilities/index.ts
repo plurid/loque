@@ -1,5 +1,9 @@
 // #region imports
     // #region external
+    import {
+        ExtractedLoque,
+    } from '../data/interfaces';
+
     import Extractor from '../objects/Extractor';
 
     import {
@@ -14,12 +18,12 @@
 const handleExtraction = <E, D>(
     locator: string | LocatorStatements,
     data: D,
-): E => {
+): ExtractedLoque<E> => {
     const extractor = new Extractor<D>(
         locator,
         data,
     );
-    const result: E = extractor.extract<E>();
+    const result = extractor.extract<E>();
 
     return result;
 }
