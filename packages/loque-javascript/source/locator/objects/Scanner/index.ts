@@ -10,6 +10,11 @@
 
     import Token from '../Token';
     // #endregion external
+
+
+    // #region internal
+    import Identifier from './Identifier';
+    // #endregion internal
 // #endregion imports
 
 
@@ -163,7 +168,35 @@ class Scanner {
     }
 
     private apostrophe() {
+        while (
+            (this.peek() !== '\'' || this.peek() === '\\')
+            && !this.isAtEnd()
+        ) {
+            if (this.peek() === '\n') {
+                this.line += 1;
 
+                this.loqueError(this.line, 'Unterminated string.');
+                return;
+            }
+
+            if (this.peek() === '\\') {
+                this.advanceEscaped();
+            } else {
+                this.advance();
+            }
+        }
+
+        // Unterminated string.
+        if (this.isAtEnd()) {
+            this.loqueError(this.line, 'Unterminated string.');
+            return;
+        }
+
+        // The closing '.
+        this.advance();
+
+        const value = this.source.substring(this.start + 1, this.current - 1);
+        this.addTokenLiteral(TokenType.VALUE, value);
     }
 
     private signifier() {
@@ -189,8 +222,11 @@ class Scanner {
             case TokenType.ABOVE:
             case TokenType.BELOW:
             case TokenType.ALL: {
-                // check if in cursors
+                const inCursor = this.isInCursor();
 
+                if (!inCursor) {
+                    type = TokenType.SIGNIFIER;
+                }
                 break;
             }
         }
@@ -210,12 +246,12 @@ class Scanner {
     }
 
     private identify() {
-        // const identifier = new Identifier(this.tokens);
-        // const tokens = identifier.identify();
+        const identifier = new Identifier(this.tokens);
+        const tokens = identifier.identify();
 
-        // this.tokens = [
-        //     // ...tokens,
-        // ];
+        this.tokens = [
+            ...tokens,
+        ];
     }
 
 
@@ -283,6 +319,30 @@ class Scanner {
 
     private isAtEnd() {
         return this.current >= this.source.length;
+    }
+
+    /**
+     * Checks if the locator if is in cursor.
+     *
+     * > `one.id:two |above ...` // returns `true`
+     * > `one.id:two | id:above ...` // returns `false`
+     * > `one.id:two | id:three |above ...` // returns `true`
+     */
+    private isInCursor() {
+        const tokens = this.tokens
+            .reverse();
+
+        for (const token of tokens) {
+            if (token.type === TokenType.COLON) {
+                return false;
+            }
+
+            if (token.type === TokenType.PIPE) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private inGroup(
