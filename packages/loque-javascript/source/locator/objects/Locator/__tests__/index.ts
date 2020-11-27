@@ -1,10 +1,5 @@
 // #region imports
     // #region external
-    import {
-        LocatorCollection,
-        LocatorDocument,
-    } from '#locator/data/interfaces';
-
     import Locator from '../';
     // #endregion external
 // #endregion imports
@@ -12,7 +7,7 @@
 
 
 // #region module
-describe('parseLocator', () => {
+describe('Locator', () => {
     it('collection', () => {
         const location = 'one';
         const locator = new Locator();
@@ -39,6 +34,19 @@ describe('parseLocator', () => {
         // expect(data[1].type).toEqual('document');
         // // expect((data[1] as LocatorDocument).key).toEqual('id');
         // expect(data[1].value).toEqual('two');
+    });
+
+
+
+    it('collection', () => {
+        const location = 'one.id:1 & id:2';
+        const locator = new Locator();
+        const data = locator.parse(location);
+
+        expect(data.length).toEqual(2);
+
+        // expect(data[0].type).toEqual('collection');
+        // expect(data[0].value).toEqual('one');
     });
 
 

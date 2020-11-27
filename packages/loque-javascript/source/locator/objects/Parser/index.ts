@@ -225,13 +225,13 @@ class Parser {
         while (
             index < documentTokens.length
         ) {
-            const token = documentTokens[0];
+            const token = documentTokens[index];
 
             if (token.type === TokenType.KEY) {
                 const key = token.lexeme;
 
-                const comparison = documentTokens[1].lexeme as LocatorKeyComparison;
-                const value = documentTokens[2].lexeme;
+                const comparison = documentTokens[index + 1].lexeme as LocatorKeyComparison;
+                const value = documentTokens[index + 2].lexeme;
 
                 const locatorKey: LocatorKey = {
                     key,
@@ -240,7 +240,8 @@ class Parser {
                 };
                 keys.push(locatorKey);
 
-                index += 2;
+                index += 3;
+                continue;
             }
 
             index += 1;

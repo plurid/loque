@@ -67,5 +67,17 @@ describe('Extractor', () => {
         expect(recordsTwo.ownedBy).toEqual('B');
         expect(recordsTwo.value).toEqual('two');
     });
+
+    it('collection document - multiple and', () => {
+        const extractor = new Extractor(
+            'records.id:1 & id:2',
+            data,
+        );
+        const records = extractor.extract<Record[]>().data;
+
+        expect(records.length).toEqual(2);
+        expect(records[0].id).toEqual('1');
+        expect(records[1].id).toEqual('2');
+    });
 });
 // #endregion module
