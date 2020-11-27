@@ -11,15 +11,15 @@
 
 
 // #region module
-const handleExtraction = (
+const handleExtraction = <E, D>(
     locator: string | LocatorStatements,
-    data: any,
-) => {
-    const extractor = new Extractor(
+    data: D,
+): E => {
+    const extractor = new Extractor<D>(
         locator,
         data,
     );
-    const result = extractor.extract();
+    const result: E = extractor.extract<E>();
 
     return result;
 }

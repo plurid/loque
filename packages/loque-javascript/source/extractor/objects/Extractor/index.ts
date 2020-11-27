@@ -1,6 +1,7 @@
 // #region imports
     // #region external
     import {
+        parseLocator,
         LocatorStatements,
     } from '#locator/index';
     // #endregion external
@@ -9,20 +10,23 @@
 
 
 // #region module
-class Extractor {
-    private data: any;
-    private locator: string | LocatorStatements;
+class Extractor<D> {
+    private locator: LocatorStatements;
+    private data: D;
 
     constructor(
         locator: string | LocatorStatements,
-        data: any,
+        data: D,
     ) {
+        this.locator = typeof locator === 'string'
+            ? parseLocator(locator)
+            : locator;
+
         this.data = data;
-        this.locator = locator;
     }
 
-    public extract() {
-        return '' as any;
+    public extract<E>() {
+        return {} as E;
     }
 }
 // #endregion module

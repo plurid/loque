@@ -11,17 +11,17 @@
 
 
 // #region module
-const handleUpdate = (
+const handleUpdate = <D, U>(
     locator: string | LocatorStatements,
-    data: any,
-    update: any,
-) => {
-    const updater = new Updater(
+    data: D,
+    update: U,
+): D => {
+    const updater = new Updater<D, U>(
         locator,
         data,
         update,
     );
-    const result = updater.result();
+    const result: D = updater.result();
 
     return result;
 }
