@@ -59,6 +59,7 @@ class Extractor<D> {
                 ? documents[0] as E
                 : documents as E,
             empty: documents.length === 0,
+            cursor: undefined,
         };
 
         return result;
