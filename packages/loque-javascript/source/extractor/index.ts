@@ -1,5 +1,9 @@
 // #region imports
     // #region internal
+    import {
+        ExtractedLoque,
+    } from './data/interfaces';
+
     import Extractor from './objects/Extractor';
 
     import {
@@ -13,6 +17,7 @@
 // #region exports
 export {
     handleExtraction,
+    ExtractedLoque,
 };
 
 

@@ -9,6 +9,7 @@
 
     import Extractor, {
         handleExtraction,
+        ExtractedLoque,
     } from './extractor';
 
     import Updater, {
@@ -38,6 +39,7 @@ export {
     LocatorDocumentStatement,
 
     Extractor,
+    ExtractedLoque,
 
     Updater,
 };
