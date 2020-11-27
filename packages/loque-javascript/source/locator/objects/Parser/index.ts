@@ -246,8 +246,8 @@ class Parser {
             index += 1;
         }
 
-        console.log('documentTokens', documentTokens);
-        console.log('keys', keys);
+        // console.log('documentTokens', documentTokens);
+        // console.log('keys', keys);
 
         this.advance();
 

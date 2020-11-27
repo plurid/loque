@@ -29,7 +29,7 @@ class Extractor<D> {
 
     public extract<E>(): E {
         let collectionData;
-        let documents: any[] = [];
+        let documents: any = [];
 
         for (const locator of this.locator) {
             if (locator instanceof CollectionStatement) {
@@ -38,8 +38,8 @@ class Extractor<D> {
             }
 
             if (locator instanceof DocumentStatement) {
-                for (const document of collectionData) {
-                    for (const key of locator.keys) {
+                for (const key of locator.keys) {
+                    for (const document of collectionData) {
                         if (document[key.key] === key.value) {
                             documents.push(document);
                         }
@@ -50,7 +50,7 @@ class Extractor<D> {
             }
         }
 
-        return documents as any;
+        return documents as E;
     }
 }
 // #endregion module

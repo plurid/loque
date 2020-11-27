@@ -7,7 +7,17 @@
 
 
 // #region module
-const data = {
+export interface Record {
+    ownedBy: string;
+    id: string;
+    value: string;
+}
+
+export interface Data {
+    records: Record[];
+}
+
+const data: Data = {
     records: [
         {
             ownedBy: 'A',
@@ -35,11 +45,12 @@ const data = {
 
 describe('Extractor', () => {
     it.only('collection document', () => {
-        const recordsOneTwo = new Extractor(
-            'records . id:1 & id:2',
+        const extractor = new Extractor(
+            'records.id:1',
             data,
         );
-        console.log('recordsOneTwo', recordsOneTwo);
+        const recordsOne = extractor.extract<Record>();
+        console.log('recordsOne', recordsOne);
 
     });
 });
