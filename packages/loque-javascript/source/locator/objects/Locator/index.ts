@@ -1,16 +1,21 @@
 // #region imports
+    // #region libraries
     import util from 'util';
+    // #endregion libraries
+
 
     // #region external
     import Scanner from '../Scanner';
     import Token from '../Token';
     import Parser from '../Parser';
-    // import Resolver from '../Resolver';
-    import Interpreter from '../Interpreter';
 
     import {
         TokenType,
     } from '../../data/enumerations';
+
+    import {
+        LocatorStatements,
+    } from '../Statement';
     // #endregion external
 // #endregion imports
 
@@ -18,9 +23,7 @@
 
 // #region module
 class Locator {
-    private interpreter: Interpreter = new Interpreter();
     private hadError = false;
-    private parsedFile = '';
 
     /**
      * Parse `locator` data.
@@ -45,29 +48,11 @@ class Locator {
         const statements = parser.parse();
         console.log('statements', util.inspect(statements, {showHidden: false, depth: null}));
 
-        // // // Stop if there was a syntax error.
-        // // if (this.hadError) {
-        // //     return;
-        // // }
+        if (this.hadError) {
+            throw 'loque error';
+        }
 
-        // // const resolver = new Resolver(
-        // //     this.interpreter,
-        // //     this.error,
-        // // );
-        // // await resolver.resolve(statements);
-
-        // // // Stop if there was a resolution error.
-        // // if (this.hadError) {
-        // //     return;
-        // // }
-
-        // const interpretedData = this.interpreter.interpret(
-        //     statements,
-        // );
-
-        // return interpretedData;
-
-        return data as any;
+        return statements as LocatorStatements;
     }
 
     /**

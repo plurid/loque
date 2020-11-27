@@ -1,14 +1,18 @@
 // #region imports
-    // #region internal
+    // #region external
     import Updater from '../objects/Updater';
-    // #endregion internal
+
+    import {
+        LocatorStatements,
+    } from '#locator/index';
+    // #endregion external
 // #endregion imports
 
 
 
 // #region module
 const handleUpdate = (
-    locator: any,
+    locator: string | LocatorStatements,
     data: any,
     update: any,
 ) => {

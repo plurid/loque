@@ -3,6 +3,12 @@
     import Locator from './objects/Locator';
 
     import {
+        LocatorStatements,
+        CollectionStatement,
+        DocumentStatement,
+    } from './objects/Statement';
+
+    import {
         parseLocator,
     } from './utilities';
     // #endregion internal
@@ -13,6 +19,10 @@
 // #region exports
 export {
     parseLocator,
+
+    LocatorStatements,
+    CollectionStatement,
+    DocumentStatement,
 };
 
 

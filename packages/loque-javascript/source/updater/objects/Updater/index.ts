@@ -1,11 +1,21 @@
+// #region imports
+    // #region external
+    import {
+        LocatorStatements,
+    } from '#locator/index';
+    // #endregion external
+// #endregion imports
+
+
+
 // #region module
 class Updater {
-    private locator: any;
+    private locator: string | LocatorStatements;
     private data: any;
     private update: any;
 
     constructor(
-        locator: any,
+        locator: string | LocatorStatements,
         data: any,
         update: any,
     ) {

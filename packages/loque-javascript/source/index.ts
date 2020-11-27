@@ -2,6 +2,9 @@
     // #region internal
     import Locator, {
         parseLocator,
+        LocatorStatements,
+        CollectionStatement as LocatorCollectionStatement,
+        DocumentStatement as LocatorDocumentStatement,
     } from './locator';
 
     import Extractor, {
@@ -30,7 +33,12 @@ const loque = {
 // #region exports
 export {
     Locator,
+    LocatorStatements,
+    LocatorCollectionStatement,
+    LocatorDocumentStatement,
+
     Extractor,
+
     Updater,
 };
 

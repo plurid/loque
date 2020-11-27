@@ -1,19 +1,23 @@
 // #region imports
-    // #region internal
+    // #region external
     import Extractor from '../objects/Extractor';
-    // #endregion internal
+
+    import {
+        LocatorStatements,
+    } from '#locator/index';
+    // #endregion external
 // #endregion imports
 
 
 
 // #region module
 const handleExtraction = (
+    locator: string | LocatorStatements,
     data: any,
-    locator: any,
 ) => {
     const extractor = new Extractor(
-        data,
         locator,
+        data,
     );
     const result = extractor.extract();
 

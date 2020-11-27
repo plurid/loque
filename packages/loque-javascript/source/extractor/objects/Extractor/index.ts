@@ -1,11 +1,21 @@
+// #region imports
+    // #region external
+    import {
+        LocatorStatements,
+    } from '#locator/index';
+    // #endregion external
+// #endregion imports
+
+
+
 // #region module
 class Extractor {
     private data: any;
-    private locator: any;
+    private locator: string | LocatorStatements;
 
     constructor(
+        locator: string | LocatorStatements,
         data: any,
-        locator: any,
     ) {
         this.data = data;
         this.locator = locator;

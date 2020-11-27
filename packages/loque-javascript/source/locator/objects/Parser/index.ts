@@ -1,7 +1,6 @@
 // #region imports
     // #region external
     import Token from '../Token';
-    import * as Expression from '../Expression';
     import * as Statement from '../Statement';
 
     import {
@@ -37,7 +36,7 @@ class Parser {
 
 
     public parse() {
-        const statements: (Statement.Statement | Expression.Expression)[] = [];
+        const statements: Statement.Statement[] = [];
 
         while (!this.isAtEnd()) {
             const declaration = this.declaration();

@@ -1,16 +1,15 @@
 // #region imports
     // #region external
-    import Token from '../Token';
-
-    import {
-        Expression,
-    } from '../Expression';
+    // import Token from '../Token';
     // #endregion external
 // #endregion imports
 
 
 
 // #region module
+export type LocatorStatements = (CollectionStatement | DocumentStatement)[];
+
+
 export abstract class Statement {
     abstract accept<T>(
         visitor: Visitor<T>,
