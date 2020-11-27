@@ -44,14 +44,28 @@ const data: Data = {
 
 
 describe('Extractor', () => {
-    it.only('collection document', () => {
+    it('collection document - simple 1', () => {
         const extractor = new Extractor(
             'records.id:1',
             data,
         );
-        const recordsOne = extractor.extract<Record>();
-        console.log('recordsOne', recordsOne);
+        const recordsOne = extractor.extract<Record>().data;
 
+        expect(recordsOne.id).toEqual('1');
+        expect(recordsOne.ownedBy).toEqual('A');
+        expect(recordsOne.value).toEqual('one');
+    });
+
+    it('collection document - simple 2', () => {
+        const extractor = new Extractor(
+            'records.id:2',
+            data,
+        );
+        const recordsTwo = extractor.extract<Record>().data;
+
+        expect(recordsTwo.id).toEqual('2');
+        expect(recordsTwo.ownedBy).toEqual('B');
+        expect(recordsTwo.value).toEqual('two');
     });
 });
 // #endregion module

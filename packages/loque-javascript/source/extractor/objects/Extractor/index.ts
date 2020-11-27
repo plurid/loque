@@ -6,6 +6,10 @@
         CollectionStatement,
         DocumentStatement,
     } from '#locator/index';
+
+    import {
+        ExtractedLoque,
+    } from '../../data/interfaces';
     // #endregion external
 // #endregion imports
 
@@ -27,7 +31,7 @@ class Extractor<D> {
         this.data = data;
     }
 
-    public extract<E>(): E {
+    public extract<E>(): ExtractedLoque<E> {
         let collectionData;
         let documents: any = [];
 
@@ -50,7 +54,14 @@ class Extractor<D> {
             }
         }
 
-        return documents as E;
+        const result: ExtractedLoque<E> = {
+            data: documents.length === 1
+                ? documents[0] as E
+                : documents as E,
+            empty: documents.length === 0,
+        };
+
+        return result;
     }
 }
 // #endregion module

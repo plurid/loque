@@ -1,5 +1,5 @@
 // #region module
-export interface LoqueExtracted<T> {
+export interface ExtractedLoque<T> {
     data: T;
     empty: boolean;
 }
