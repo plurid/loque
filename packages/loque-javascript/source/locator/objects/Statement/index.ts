@@ -47,14 +47,17 @@ export class CollectionStatement extends Statement {
 
 
 export class DocumentStatement extends Statement {
-    public expression: Expression;
+    // public expression: Expression;
+    public keys: any;
 
     constructor(
-        expression: Expression,
+        keys: any,
+        // expression: Expression,
     ) {
         super();
 
-        this.expression = expression;
+        this.keys = keys;
+        // this.expression = expression;
     }
 
     accept<T>(

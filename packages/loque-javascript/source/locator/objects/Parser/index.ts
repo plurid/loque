@@ -7,6 +7,13 @@
     import {
         TokenType,
     } from '../../data/enumerations';
+
+    import {
+        LocatorDocument,
+        LocatorKey,
+        LocatorKeyComparison,
+        LocatorCursor,
+    } from '../../data/interfaces';
     // #endregion external
 // #endregion imports
 
@@ -198,9 +205,57 @@ class Parser {
     }
 
     private document() {
+        this.consume(TokenType.DOT, 'Expected document to belong to a collection.');
+
+        const documentTokens: Token[] = [];
+
+        while (
+            !this.isAtEnd()
+            && !this.check(TokenType.DOT)
+        ) {
+            const current = this.peek();
+            documentTokens.push(current);
+
+            this.advance();
+        }
+
+        const keys: LocatorKey[] = [];
+        let cursor: LocatorCursor | null = null;
+        let index = 0;
+
+        while (
+            index < documentTokens.length
+        ) {
+            const token = documentTokens[0];
+
+            if (token.type === TokenType.KEY) {
+                const key = token.lexeme;
+
+                const comparison = documentTokens[1].lexeme as LocatorKeyComparison;
+                const value = documentTokens[2].lexeme;
+
+                const locatorKey: LocatorKey = {
+                    key,
+                    value,
+                    comparison,
+                };
+                keys.push(locatorKey);
+
+                index += 2;
+            }
+
+            index += 1;
+        }
+
+        console.log('documentTokens', documentTokens);
+        console.log('keys', keys);
 
         this.advance();
-        return;
+
+        const document = new Statement.DocumentStatement(
+            keys,
+        );
+        return document;
     }
 
 

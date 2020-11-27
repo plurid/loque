@@ -1,4 +1,6 @@
 // #region imports
+    import util from 'util';
+
     // #region external
     import Scanner from '../Scanner';
     import Token from '../Token';
@@ -41,7 +43,7 @@ class Locator {
             this.error,
         );
         const statements = parser.parse();
-        console.log('statements', statements);
+        console.log('statements', util.inspect(statements, {showHidden: false, depth: null}));
 
         // // // Stop if there was a syntax error.
         // // if (this.hadError) {
@@ -80,15 +82,15 @@ class Locator {
     ) {
         if (typeof entity === 'number') {
             // entity is a line number
-            // this.report(entity, '', message);
+            this.report(entity, '', message);
             return;
         }
 
         // entity is a Token
         if (entity.type === TokenType.EOF) {
-            // this.report(entity.line, ' at end', message);
+            this.report(entity.line, ' at end', message);
         } else {
-            // this.report(entity.line, " at '" + entity.lexeme + "'", message);
+            this.report(entity.line, " at '" + entity.lexeme + "'", message);
         }
     }
 
