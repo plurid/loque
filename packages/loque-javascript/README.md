@@ -26,6 +26,7 @@
 ### Contents
 
 + [About](#about)
++ [Data](#data)
 + [Packages](#packages)
 
 
@@ -98,6 +99,29 @@ const main = () => {
 
 main();
 ```
+
+
+
+## Data
+
+A collection of data is an arbitrary structure composed of `collections` of `documents` and `values`.
+
+``` typescript
+const data = {
+    // collections
+    aCollection: [
+    ],
+
+    // or values
+    aValue: 'value',
+};
+```
+
+A `collection` is a specialized `list`.
+
+A `value` can be a `number`, a `string`, a `boolean`, a `map`.
+
+A `document` can contain arbitrary `values` and `collections`.
 
 
 
