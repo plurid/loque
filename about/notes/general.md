@@ -123,10 +123,10 @@ cursor handling
     records
         . ownedBy:123 |5 above 456|
 
-    // gets 5 records above the cursor id 456
+    // gets 5 records above the cursor index location 456
 
 
     records
         . ownedBy:123 |5 below 456|
 
-    // gets 5 records below the cursor id 456
+    // gets 5 records below the cursor index location 456
