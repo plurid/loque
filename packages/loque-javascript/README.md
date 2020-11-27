@@ -69,20 +69,52 @@ const data = {
 
 
 const main = () => {
+    // LocatorStatements
     const locatorRecordOne = loque.locate(
         'records.id:1',
     );
 
+    // Extracted data with locator statements.
+    // {
+    //     ownedBy: 'A',
+    //     id: '1',
+    //     value: 'one',
+    // };
     const recordOne = loque.extract(
         locatorRecordOne,
         data,
     );
 
+    // Extracted data with locator string.
+    // [
+    //     {
+    //         ownedBy: 'A',
+    //         id: '1',
+    //         value: 'one',
+    //     },
+    //     {
+    //         ownedBy: 'B',
+    //         id: '2',
+    //         value: 'two',
+    //     },
+    // ];
     const recordsOneTwo = loque.extract(
         'records . id:1 & id:2',
         data,
     );
 
+    // Updated data.
+    // {
+    //     records: [
+    //         ...
+    //         {
+    //             ownedBy: 'A',
+    //             id: '3',
+    //             value: 'three-modified',
+    //         },
+    //         ...
+    //     ],
+    // };
     const newData = loque.update(
         'records.id:3',
         data,
@@ -91,8 +123,10 @@ const main = () => {
         },
     );
 
+
+    // Extraction with cursor.
     const lastTwo = loque.extract(
-        'records.ownedBy:A |last 4|',
+        'records.ownedBy:A |last 2|',
         newData,
     );
 }
