@@ -36,12 +36,12 @@ class Locator {
         const tokens = scanner.scanTokens();
         console.log('tokens', tokens);
 
-        // const parser = new Parser(
-        //     tokens,
-        //     this.error,
-        // );
-        // const statements = parser.parse();
-        // // console.log('statements', statements);
+        const parser = new Parser(
+            tokens,
+            this.error,
+        );
+        const statements = parser.parse();
+        console.log('statements', statements);
 
         // // // Stop if there was a syntax error.
         // // if (this.hadError) {

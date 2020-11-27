@@ -17,7 +17,7 @@ class Parser {
     private tokens: Token[];
     private current = 0;
     private ParseError = class ParseError extends Error {};
-    private deonError: any;
+    private loqueError: any;
 
 
     constructor(
@@ -25,7 +25,7 @@ class Parser {
         error: any,
     ) {
         this.tokens = tokens;
-        this.deonError = error;
+        this.loqueError = error;
     }
 
 
@@ -47,39 +47,15 @@ class Parser {
             const current = this.peek();
 
             if (
-                current.type === TokenType.SIGNIFIER
-            ) {
-
-            }
-
-            if (
                 current.type === TokenType.COLLECTION
             ) {
-
+                return this.collection();
             }
 
             if (
-                current.type === TokenType.DOCUMENT
+                current.type === TokenType.DOT
             ) {
-
-            }
-
-            if (
-                current.type === TokenType.CURSOR
-            ) {
-
-            }
-
-            if (
-                current.type === TokenType.KEY
-            ) {
-
-            }
-
-            if (
-                current.type === TokenType.LEFT_CURLY_BRACKET
-            ) {
-                // return this.handleMap();
+                return this.dot();
             }
 
             this.advance();
@@ -199,6 +175,34 @@ class Parser {
         // )
     }
 
+    private collection() {
+        const token = this.peek();
+
+        const collection = new Statement.CollectionStatement(
+            token.lexeme,
+        );
+
+        this.advance();
+
+        return collection;
+    }
+
+    private dot() {
+        const next = this.next();
+
+        if (next && next.type === TokenType.DOT) {
+            return this.collection();
+        }
+
+        return this.document();
+    }
+
+    private document() {
+
+        this.advance();
+        return;
+    }
+
 
     private block(
         tokenType: TokenType,
@@ -266,7 +270,7 @@ class Parser {
         token: Token,
         message: string,
     ) {
-        this.deonError(token, message);
+        this.loqueError(token, message);
 
         return new this.ParseError();
     }
@@ -327,6 +331,10 @@ class Parser {
 
     private previous() {
         return this.tokens[this.current - 1];
+    }
+
+    private next() {
+        return this.tokens[this.current + 1];
     }
 
     private nestLevel(

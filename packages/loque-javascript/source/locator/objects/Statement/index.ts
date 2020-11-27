@@ -25,14 +25,17 @@ export interface Visitor<T> {
 
 
 export class CollectionStatement extends Statement {
-    public expression: Expression;
+    public name: string;
+    // public expression: Expression;
 
     constructor(
-        expression: Expression,
+        name: string,
+        // expression: Expression,
     ) {
         super();
 
-        this.expression = expression;
+        this.name = name;
+        // this.expression = expression;
     }
 
     accept<T>(
