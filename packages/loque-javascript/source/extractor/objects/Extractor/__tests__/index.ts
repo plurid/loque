@@ -43,6 +43,36 @@ const data: Data = {
 };
 
 
+const dataWithSubcollections = {
+    records: [
+        {
+            ownedBy: 'A',
+            id: '1',
+            value: 'one',
+            logs: [
+                {
+                    id: '1',
+                    value: 'a',
+                },
+                {
+                    id: '2',
+                    value: 'a',
+                },
+                {
+                    id: '3',
+                    value: 'b',
+                },
+            ],
+        },
+        {
+            ownedBy: 'B',
+            id: '2',
+            value: 'two',
+        },
+    ],
+};
+
+
 describe('Extractor', () => {
     it('collection document - simple 1', () => {
         const extractor = new Extractor(
@@ -78,6 +108,19 @@ describe('Extractor', () => {
             data,
         );
         const records = extractor.extract<Record[]>().data;
+
+        expect(records.length).toEqual(2);
+        expect(records[0].id).toEqual('1');
+        expect(records[1].id).toEqual('2');
+    });
+
+
+    it('collection document - with subcollections', () => {
+        const extractor = new Extractor(
+            'records.id:1.logs.value:a',
+            dataWithSubcollections,
+        );
+        const records: any = extractor.extract().data;
 
         expect(records.length).toEqual(2);
         expect(records[0].id).toEqual('1');
