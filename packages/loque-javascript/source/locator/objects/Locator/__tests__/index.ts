@@ -50,6 +50,76 @@ describe('Locator', () => {
 
 
 
+    it('collection document - whitespace', () => {
+        const location = `
+            one
+            .
+            id : two
+        `;
+        const locator = new Locator();
+        const data = locator.parse(location);
+
+        const collectionStatement = data[0] as CollectionStatement;
+        const documentStatement = data[1] as DocumentStatement;
+
+        expect(data.length).toEqual(2);
+
+        expect(collectionStatement).toBeInstanceOf(CollectionStatement);
+        expect(collectionStatement.name).toEqual('one');
+
+        expect(documentStatement).toBeInstanceOf(DocumentStatement);
+        expect(documentStatement.keys.length).toEqual(1);
+        expect(documentStatement.keys[0].key).toEqual('id');
+        expect(documentStatement.keys[0].value).toEqual('two');
+        expect(documentStatement.keys[0].comparison).toEqual(':');
+    });
+
+
+
+    it('collection document - greater than', () => {
+        const location = 'one.id>two';
+        const locator = new Locator();
+        const data = locator.parse(location);
+
+        const collectionStatement = data[0] as CollectionStatement;
+        const documentStatement = data[1] as DocumentStatement;
+
+        expect(data.length).toEqual(2);
+
+        expect(collectionStatement).toBeInstanceOf(CollectionStatement);
+        expect(collectionStatement.name).toEqual('one');
+
+        expect(documentStatement).toBeInstanceOf(DocumentStatement);
+        expect(documentStatement.keys.length).toEqual(1);
+        expect(documentStatement.keys[0].key).toEqual('id');
+        expect(documentStatement.keys[0].value).toEqual('two');
+        expect(documentStatement.keys[0].comparison).toEqual('>');
+    });
+
+
+
+    it('collection document - less than', () => {
+        const location = 'one.id<two';
+        const locator = new Locator();
+        const data = locator.parse(location);
+
+        const collectionStatement = data[0] as CollectionStatement;
+        const documentStatement = data[1] as DocumentStatement;
+
+        expect(data.length).toEqual(2);
+
+        expect(collectionStatement).toBeInstanceOf(CollectionStatement);
+        expect(collectionStatement.name).toEqual('one');
+
+        expect(documentStatement).toBeInstanceOf(DocumentStatement);
+        expect(documentStatement.keys.length).toEqual(1);
+        expect(documentStatement.keys[0].key).toEqual('id');
+        expect(documentStatement.keys[0].value).toEqual('two');
+        expect(documentStatement.keys[0].comparison).toEqual('<');
+    });
+
+
+
     it('collection document - and', () => {
         const location = 'one.id:1 & id:2';
         const locator = new Locator();
