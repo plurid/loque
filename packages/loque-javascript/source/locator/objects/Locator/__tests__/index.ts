@@ -74,6 +74,7 @@ describe('Locator', () => {
     });
 
 
+
     it('collection document collection', () => {
         const location = 'one.id:two.three';
         const locator = new Locator();
@@ -97,6 +98,7 @@ describe('Locator', () => {
         expect(collectionStatement2).toBeInstanceOf(CollectionStatement);
         expect(collectionStatement2.name).toEqual('three');
     });
+
 
 
     it('collection document collection document', () => {
