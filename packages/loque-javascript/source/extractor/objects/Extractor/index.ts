@@ -34,6 +34,7 @@ class Extractor<D> {
     public extract<E>(): ExtractedLoque<E> {
         let collectionData;
         let documents: any = [];
+        let cursor = undefined;
 
         for (const locator of this.locator) {
             if (locator instanceof CollectionStatement) {
@@ -43,9 +44,11 @@ class Extractor<D> {
 
             if (locator instanceof DocumentStatement) {
                 for (const key of locator.keys) {
-                    for (const document of collectionData) {
+                    for (const [index, document] of collectionData.entries()) {
                         if (document[key.key] === key.value) {
                             documents.push(document);
+
+                            cursor = index;
                         }
                     }
                 }
@@ -59,7 +62,7 @@ class Extractor<D> {
                 ? documents[0] as E
                 : documents as E,
             empty: documents.length === 0,
-            cursor: undefined,
+            cursor,
         };
 
         return result;

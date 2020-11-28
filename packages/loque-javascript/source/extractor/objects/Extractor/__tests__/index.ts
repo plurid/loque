@@ -56,6 +56,8 @@ describe('Extractor', () => {
         expect(recordsOne.value).toEqual('one');
     });
 
+
+
     it('collection document - simple 2', () => {
         const extractor = new Extractor(
             'records.id:2',
@@ -67,6 +69,8 @@ describe('Extractor', () => {
         expect(recordsTwo.ownedBy).toEqual('B');
         expect(recordsTwo.value).toEqual('two');
     });
+
+
 
     it('collection document - multiple and', () => {
         const extractor = new Extractor(
