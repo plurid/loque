@@ -36,13 +36,25 @@ class Extractor<D> {
         let documents: any = [];
         let cursor = undefined;
 
-        for (const locator of this.locator) {
+        console.log('this.locator', this.locator);
+
+        for (const [index, locator] of this.locator.entries()) {
             if (locator instanceof CollectionStatement) {
+                if (index > 0) {
+                    // get collection data
+                    continue;
+                }
+
                 collectionData = this.data[locator.name];
                 continue;
             }
 
             if (locator instanceof DocumentStatement) {
+                if (index < this.locator.length - 1) {
+                    // if match assign document to collection data
+                    continue;
+                }
+
                 for (const key of locator.keys) {
                     for (const [index, document] of collectionData.entries()) {
                         if (document[key.key] === key.value) {
