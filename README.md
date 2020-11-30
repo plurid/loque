@@ -19,6 +19,8 @@
 </h3>
 
 
+<br />
+
 
 `loque` provides utility for locating, extracting, and updating data from object-like structures (arbitrarily nested maps and lists) based on a querying syntax.
 
@@ -28,6 +30,7 @@
 + [About](#about)
 + [Data](#data)
 + [Packages](#packages)
++ [Codeophon](#codeophon)
 
 
 
@@ -182,3 +185,10 @@ A `document` can contain arbitrary `values` and `collections`.
 [@plurid/loque-javascript][loque-javascript] • the `JavaScript`/`TypeScript` implementation
 
 [loque-javascript]: https://github.com/plurid/loque/tree/master/packages/loque-javascript
+
+
+
+## [Codeophon](https://github.com/ly3xqhl8g9/codeophon)
+
++ licensing: [delicense](https://github.com/ly3xqhl8g9/delicense)
++ versioning: [αver](https://github.com/ly3xqhl8g9/alpha-versioning)
