@@ -115,13 +115,13 @@ describe('Extractor', () => {
     });
 
 
-    it.only('collection document - with subcollections', () => {
+    it('collection document - with subcollections', () => {
         const extractor = new Extractor(
             'records.id:1.logs.value:a',
             dataWithSubcollections,
         );
         const extract: any = extractor.extract();
-        console.log('extract', extract);
+        // console.log('extract', extract);
         // const records: any = extractor.extract().data;
 
         // expect(records.length).toEqual(2);

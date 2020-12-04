@@ -36,7 +36,7 @@ class Extractor<D> {
         let documents: any = [];
         let cursor = undefined;
 
-        console.log('this.locator', this.locator);
+        // console.log('this.locator', this.locator);
 
         for (const [index, locator] of this.locator.entries()) {
             if (locator instanceof CollectionStatement) {
