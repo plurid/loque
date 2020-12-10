@@ -34,12 +34,12 @@
     "scripts": {
         "test": "jest -c ./configurations/jest.config.js --coverage --verbose  ./source",
         "test.suite": "jest -c ./configurations/jest.config.js --coverage --verbose",
-        "start": "rollup -c ./scripts/rollup.config.ts -w",
+        "clean": "rm -rf ./distribution/",
+        "start": "yarn clean && rollup -c ./scripts/rollup.config.ts -w",
         "build.clean": "rm -rf `find ./distribution/ -type d -name __tests__`",
-        "build.development": "rollup -c ./scripts/rollup.config.ts && yarn build.clean",
-        "build.production": "rollup -c ./scripts/rollup.config.ts && yarn build.clean",
+        "build.development": "yarn clean && rollup -c ./scripts/rollup.config.ts && yarn build.clean",
+        "build.production": "yarn clean && rollup -c ./scripts/rollup.config.ts && yarn build.clean",
         "build": "yarn build.production",
-        "prebuild": "rm -rf distribution",
         "prepublishOnly": "yarn build"
     },
     "devDependencies": {
