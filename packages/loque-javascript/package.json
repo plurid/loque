@@ -1,9 +1,9 @@
 {
     "name": "@plurid/loque",
     "version": "0.0.0-0",
-    "description": "Human-Readable Database Based on Deon",
+    "description": "Object Data Locator, Extractor, Updater",
     "keywords": [
-        "database",
+        "data",
         "loque"
     ],
     "author": "ly3xqhl8g9 <ly3xqhl8g9@plurid.com> (https://plurid.com)",
