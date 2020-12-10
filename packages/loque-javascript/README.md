@@ -170,6 +170,28 @@ const data = {
 
 A `collection` is a specialized `list`.
 
+``` typescript
+const data = {
+    // a normal list
+    list: [
+        'one',
+        'two,
+    ],
+    collection: [
+        // the first item is always a marker for the collection type
+        {
+            type: 'collection',
+        },
+
+        // the other elements are any type the collection holds
+        // and is available to the public interface
+        {
+            one: 'two',
+        },
+    ],
+}
+```
+
 A `value` can be a `number`, a `string`, a `boolean`, a `map`.
 
 A `document` can contain arbitrary `values` and `collections`.
