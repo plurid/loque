@@ -18,6 +18,7 @@
     },
     "homepage": "https://github.com/plurid/loque/blob/master/packages/loque-javascript/README.md",
     "publishConfig": {
+        "registry": "https://registry.npmjs.org/",
         "access": "public"
     },
     "engines": {
