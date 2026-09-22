@@ -70,8 +70,8 @@ immutable application. The compiler also has direct conflict tests because the
 current downward-only traversal cannot produce overlapping targets.
 
 Coverage includes all production TypeScript, excluding tests. Required floors are
-90% statements, lines, and functions, and 85% branches. Explicit `any`, unused
-variables, and empty-function scaffolding are no longer allowed by lint.
+90% statements, lines, and functions, and 85% branches. Lint rejects explicit `any`, unused
+variables, and empty functions.
 
 Consumer fixtures exercise the packed ESM and CommonJS APIs, portable-query
 round trips, mutation application, and errors. Type fixtures cover readonly
@@ -79,6 +79,5 @@ results, required narrowing, and invalid query/mutation arguments. The browser
 fixture selects and updates data without Node builtins. All verification commands
 must leave tracked source and the lockfile unchanged.
 
-See the package README for the JSON contract, IR layout, comparison semantics,
-and breaking migration. Judgment execution, the textual DSL, pagination,
-arbitrary patch intake, and persistent stores remain future work.
+See the package README for the public API, worked examples, JSON data contract,
+and query/patch formats.

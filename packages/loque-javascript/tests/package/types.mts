@@ -53,7 +53,7 @@ export function rejectInvalidUsage(): void {
     (root as JsonObject).changed = true;
     // @ts-expect-error IR steps are readonly.
     ir.steps.push({ op: 'each' });
-    // @ts-expect-error Legacy API has been removed.
+    // @ts-expect-error The namespace rejects methods outside the public API.
     loque.extract('records.id:1', data);
     void document;
 }
