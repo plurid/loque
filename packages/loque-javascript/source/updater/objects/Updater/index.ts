@@ -2,10 +2,10 @@
     // #region external
     import {
         parseLocator,
-        LocatorStatements,
+        type LocatorStatements,
         CollectionStatement,
         DocumentStatement,
-    } from '#locator/index';
+    } from '../../../locator/index';
     // #endregion external
 // #endregion imports
 
@@ -33,18 +33,19 @@ class Updater<D, U> {
     }
 
     public result() {
-        let collectionData;
-        let collectionName: any;
+        const collections = this.data as Record<string, Record<string, unknown>[]>;
+        let collectionData!: Record<string, unknown>[];
+        let collectionName!: string;
 
         for (const locator of this.locator) {
             if (locator instanceof CollectionStatement) {
                 collectionName = locator.name;
-                collectionData = this.data[locator.name];
+                collectionData = collections[locator.name];
                 continue;
             }
 
             if (locator instanceof DocumentStatement) {
-                const updatedCollection: any[] = collectionData.map((document: any) => {
+                const updatedCollection = collectionData.map((document) => {
                     for (const key of locator.keys) {
                         if (document[key.key] === key.value) {
                             return {
@@ -67,7 +68,7 @@ class Updater<D, U> {
 
         const result = {
             ...this.data,
-        };
+        } as Record<string, unknown>;
         result[collectionName] = [
             ...collectionData,
         ];

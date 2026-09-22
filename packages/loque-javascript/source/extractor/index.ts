@@ -1,7 +1,7 @@
 // #region imports
     // #region internal
     import {
-        ExtractedLoque,
+        type ExtractedLoque,
     } from './data/interfaces';
 
     import Extractor from './objects/Extractor';
@@ -17,7 +17,7 @@
 // #region exports
 export {
     handleExtraction,
-    ExtractedLoque,
+    type ExtractedLoque,
 };
 
 

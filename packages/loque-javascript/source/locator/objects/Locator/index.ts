@@ -1,9 +1,4 @@
 // #region imports
-    // #region libraries
-    import util from 'util';
-    // #endregion libraries
-
-
     // #region external
     import Scanner from '../Scanner';
     import Token from '../Token';
@@ -14,7 +9,7 @@
     } from '../../data/enumerations';
 
     import {
-        LocatorStatements,
+        type LocatorStatements,
     } from '../Statement';
     // #endregion external
 // #endregion imports
@@ -46,7 +41,6 @@ class Locator {
             this.error,
         );
         const statements = parser.parse();
-        // console.log('statements', util.inspect(statements, {showHidden: false, depth: null}));
 
         if (this.hadError) {
             throw 'loque error';

@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 // #region imports
     // #region external
     import Extractor from '../';
@@ -115,18 +117,7 @@ describe('Extractor', () => {
     });
 
 
-    it('collection document - with subcollections', () => {
-        const extractor = new Extractor(
-            'records.id:1.logs.value:a',
-            dataWithSubcollections,
-        );
-        const extract: any = extractor.extract();
-        // console.log('extract', extract);
-        // const records: any = extractor.extract().data;
-
-        // expect(records.length).toEqual(2);
-        // expect(records[0].id).toEqual('1');
-        // expect(records[1].id).toEqual('2');
-    });
+    // Nested traversal is not implemented; define its contract in the next phase.
+    it.todo('collection document - with subcollections');
 });
 // #endregion module

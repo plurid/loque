@@ -8,10 +8,10 @@
     } from '../../data/enumerations';
 
     import {
-        LocatorDocument,
-        LocatorKey,
-        LocatorKeyComparison,
-        LocatorCursor,
+        type LocatorDocument,
+        type LocatorKey,
+        type LocatorKeyComparison,
+        type LocatorCursor,
     } from '../../data/interfaces';
     // #endregion external
 // #endregion imports
@@ -219,7 +219,7 @@ class Parser {
         }
 
         const keys: LocatorKey[] = [];
-        let cursor: LocatorCursor | null = null;
+        const cursor: LocatorCursor | null = null;
         let index = 0;
 
         while (

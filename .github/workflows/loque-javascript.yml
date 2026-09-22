@@ -1,0 +1,70 @@
+name: loque JavaScript
+
+on:
+  push:
+    paths:
+      - 'packages/loque-javascript/**'
+      - '.github/workflows/loque-javascript.yml'
+  pull_request:
+    paths:
+      - 'packages/loque-javascript/**'
+      - '.github/workflows/loque-javascript.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify on Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24', '26']
+    defaults:
+      run:
+        working-directory: packages/loque-javascript
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: packages/loque-javascript/package.json
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+        env:
+          LOQUE_PACKAGE_ARTIFACT_DIR: ${{ runner.temp }}/loque-packed
+      - name: Check that verification does not modify the checkout
+        run: |
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+      - uses: actions/upload-artifact@v7
+        if: matrix.node == '24'
+        with:
+          name: loque-package
+          path: ${{ runner.temp }}/loque-packed/loque.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  minimum-runtime:
+    name: Packed package on Node 22.0.0
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: loque-package
+          path: ${{ runner.temp }}/loque-packed
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.0.0'
+          package-manager-cache: false
+      - run: node packages/loque-javascript/scripts/check-package.mjs --runtime-only "$LOQUE_TARBALL"
+        env:
+          LOQUE_TARBALL: ${{ runner.temp }}/loque-packed/loque.tgz

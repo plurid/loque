@@ -2,14 +2,14 @@
     // #region internal
     import Locator, {
         parseLocator,
-        LocatorStatements,
+        type LocatorStatements,
         CollectionStatement as LocatorCollectionStatement,
         DocumentStatement as LocatorDocumentStatement,
     } from './locator';
 
     import Extractor, {
         handleExtraction,
-        ExtractedLoque,
+        type ExtractedLoque,
     } from './extractor';
 
     import Updater, {
@@ -34,12 +34,12 @@ const loque = {
 // #region exports
 export {
     Locator,
-    LocatorStatements,
+    type LocatorStatements,
     LocatorCollectionStatement,
     LocatorDocumentStatement,
 
     Extractor,
-    ExtractedLoque,
+    type ExtractedLoque,
 
     Updater,
 };

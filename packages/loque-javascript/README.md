@@ -24,6 +24,8 @@
 
 `loque` provides utility for locating, extracting, and updating data from object-like structures (arbitrarily nested maps and lists) based on a querying syntax.
 
+For build and verification commands, see [Development](https://github.com/plurid/loque/blob/master/packages/loque-javascript/DEVELOPMENT.md).
+
 
 ### Contents
 

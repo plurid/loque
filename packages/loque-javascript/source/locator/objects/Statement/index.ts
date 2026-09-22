@@ -1,7 +1,7 @@
 // #region imports
     // #region external
     import {
-        LocatorKey,
+        type LocatorKey,
     } from '../../data/interfaces';
     // import Token from '../Token';
     // #endregion external

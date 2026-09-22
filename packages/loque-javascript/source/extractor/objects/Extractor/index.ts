@@ -2,13 +2,13 @@
     // #region external
     import {
         parseLocator,
-        LocatorStatements,
+        type LocatorStatements,
         CollectionStatement,
         DocumentStatement,
-    } from '#locator/index';
+    } from '../../../locator/index';
 
     import {
-        ExtractedLoque,
+        type ExtractedLoque,
     } from '../../data/interfaces';
     // #endregion external
 // #endregion imports
@@ -32,9 +32,11 @@ class Extractor<D> {
     }
 
     public extract<E>(): ExtractedLoque<E> {
-        let collectionData;
-        let documents: any = [];
-        let cursor = undefined;
+        // The dynamic locator API interprets collections at the data boundary.
+        const collections = this.data as Record<string, Record<string, unknown>[]>;
+        let collectionData!: Record<string, unknown>[];
+        const documents: Record<string, unknown>[] = [];
+        let cursor: number | undefined;
 
         // console.log('this.locator', this.locator);
 
@@ -45,7 +47,7 @@ class Extractor<D> {
                     continue;
                 }
 
-                collectionData = this.data[locator.name];
+                collectionData = collections[locator.name];
                 continue;
             }
 
@@ -70,9 +72,9 @@ class Extractor<D> {
         }
 
         const result: ExtractedLoque<E> = {
-            data: documents.length === 1
-                ? documents[0] as E
-                : documents as E,
+            data: (documents.length === 1
+                ? documents[0]
+                : documents) as E,
             empty: documents.length === 0,
             cursor,
         };

@@ -1,14 +1,14 @@
 // #region imports
     // #region external
     import {
-        ExtractedLoque,
+        type ExtractedLoque,
     } from '../data/interfaces';
 
     import Extractor from '../objects/Extractor';
 
     import {
-        LocatorStatements,
-    } from '#locator/index';
+        type LocatorStatements,
+    } from '../../locator/index';
     // #endregion external
 // #endregion imports
 

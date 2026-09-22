@@ -3,8 +3,8 @@
     import Updater from '../objects/Updater';
 
     import {
-        LocatorStatements,
-    } from '#locator/index';
+        type LocatorStatements,
+    } from '../../locator/index';
     // #endregion external
 // #endregion imports
 

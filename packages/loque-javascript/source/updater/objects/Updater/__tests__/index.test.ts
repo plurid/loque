@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 // #region imports
     // #region external
     import Updater from '../';
@@ -43,7 +45,7 @@ const data: Data = {
 };
 
 
-describe('Extractor', () => {
+describe('Updater', () => {
     it('collection document - simple 1', () => {
         const extractor = new Updater(
             'records.id:1',

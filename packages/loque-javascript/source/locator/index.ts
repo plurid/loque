@@ -3,7 +3,7 @@
     import Locator from './objects/Locator';
 
     import {
-        LocatorStatements,
+        type LocatorStatements,
         CollectionStatement,
         DocumentStatement,
     } from './objects/Statement';
@@ -20,7 +20,7 @@
 export {
     parseLocator,
 
-    LocatorStatements,
+    type LocatorStatements,
     CollectionStatement,
     DocumentStatement,
 };
