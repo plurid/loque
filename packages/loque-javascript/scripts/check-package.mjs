@@ -90,6 +90,7 @@ try {
         });
         const browser = await import(pathToFileURL(join(browserDirectory, 'index.mjs')).href);
         assert.deepEqual(browser.selected, { id: '1', value: 'one' });
+        assert.deepEqual(browser.updated, { records: [{ id: '1', value: 'one', reviewed: true }] });
 
         const manifest = JSON.parse(await readFile(join(installedPackage, 'package.json'), 'utf8'));
         assert.equal(manifest.engines.node, '>=22');

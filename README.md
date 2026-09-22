@@ -1,218 +1,52 @@
 <p align="center">
-    <img src="https://raw.githubusercontent.com/plurid/loque/master/about/identity/loque-logo.png" height="250px">
-    <br />
-    <br />
-    <a target="_blank" href="https://github.com/plurid/loque/blob/master/LICENSE">
-        <img src="https://img.shields.io/badge/license-DEL-blue.svg?colorB=1380C3&style=for-the-badge" alt="License: DEL">
-    </a>
+    <img src="https://raw.githubusercontent.com/plurid/loque/master/about/identity/loque-logo.png" height="250" alt="loque">
 </p>
 
+# loque
 
+Deterministic JSON selections and immutable mutation plans.
 
-<h1 align="center">
-    loque
-</h1>
+Loque captures an ordinary JSON document, selects nodes with a portable query,
+and generates a reviewable JSON Patch. Applying a plan produces a new snapshot
+while keeping the original data and selections unchanged.
 
+```ts
+import { snapshot, query, field, literal, eq } from '@plurid/loque';
 
-<h3 align="center">
-    Object Data Locator, Extractor, Updater
-</h3>
-
-
-<br />
-
-
-`loque` provides utility for locating, extracting, and updating data from object-like structures (arbitrarily nested maps and lists) based on a querying syntax.
-
-For build and verification commands, see [JavaScript development](./packages/loque-javascript/DEVELOPMENT.md).
-
-
-### Contents
-
-+ [About](#about)
-+ [Data](#data)
-+ [Packages](#packages)
-+ [Codeophon](#codeophon)
-
-
-
-## About
-
-Given a collection of data, `loque` selects, retrieves, and modifies values.
-
-Example:
-
-``` typescript
-import loque from '@plurid/loque';
-
-
-
-const data = {
+const state = snapshot({
     records: [
-        {
-            ownedBy: 'A',
-            id: '1',
-            value: 'one',
-        },
-        {
-            ownedBy: 'B',
-            id: '2',
-            value: 'two',
-        },
-        {
-            ownedBy: 'A',
-            id: '3',
-            value: 'three',
-        },
-        {
-            ownedBy: 'A',
-            id: '4',
-            value: 'four',
-        },
+        { id: '1', value: 'one' },
+        { id: '2', value: 'two' },
     ],
-};
+});
 
+const selected = state.select(
+    query().field('records').each().where(eq(field('id'), literal('1'))),
+);
 
-const main = () => {
-    // LocatorStatements
-    const locatorRecordOne = loque.locate(
-        'records.id:1',
-    );
+selected.values(); // [{ id: '1', value: 'one' }]
+selected.paths();  // ['/records/0']
 
-    // Extracted data obtained with locator statements.
-    // {
-    //     ownedBy: 'A',
-    //     id: '1',
-    //     value: 'one',
-    // };
-    const recordOne = loque.extract(
-        locatorRecordOne,
-        data,
-    ).data;
-
-    // Extracted data obtained with locator string.
-    // [
-    //     {
-    //         ownedBy: 'A',
-    //         id: '1',
-    //         value: 'one',
-    //     },
-    //     {
-    //         ownedBy: 'B',
-    //         id: '2',
-    //         value: 'two',
-    //     },
-    // ];
-    const recordsOneTwo = loque.extract(
-        'records . id:1 & id:2',
-        data,
-    ).data;
-
-    // Updated data with locator string.
-    // {
-    //     records: [
-    //         ...
-    //         {
-    //             ownedBy: 'A',
-    //             id: '3',
-    //             value: 'three-modified',
-    //         },
-    //         ...
-    //     ],
-    // };
-    const newData = loque.update(
-        'records.id:3',
-        data,
-        {
-            value: 'three-modified',
-        },
-    );
-
-
-    // Extraction with cursor.
-    const lastTwo = loque.extract(
-        'records.ownedBy:A |last 2|',
-        newData,
-    ).data;
-
-
-    const firstTwo = loque.extract(
-        'records.ownedBy:A |first 2|',
-        newData,
-    );
-
-    // Cursor index value of the last document.
-    const firstTwoCursor = firstTwo.cursor;
-
-    const nextTwo = loque.extract(
-        `records.ownedBy:A |first 2 above ${firstTwoCursor}|`,
-        newData,
-    ).data;
-}
-
-main();
+const plan = selected.plan({ op: 'merge', value: { reviewed: true } });
+plan.operations; // [{ op: 'add', path: '/records/0/reviewed', value: true }]
+const next = plan.apply();
+next.value; // New readonly JSON document.
 ```
 
+This is the deterministic core of the Loque 2 architecture: immutable snapshots,
+node references, nested selection, typed predicates, serializable IR, and explicit
+replace/merge/remove plans. It replaces the legacy string-query API. Arrays and
+objects contain ordinary JSON values with no collection markers.
 
+The JavaScript/TypeScript package supports Node.js 22+ and modern browser bundlers,
+ships ESM and CommonJS, and has no runtime dependencies. Judgment providers, the
+textual DSL, pagination, and persistent storage are later milestones.
 
-## Data
+- [JavaScript/TypeScript API and migration guide](packages/loque-javascript/README.md)
+- [Development and verification](packages/loque-javascript/DEVELOPMENT.md)
+- [npm package: @plurid/loque](https://www.npmjs.com/package/@plurid/loque)
 
-A collection of data is an arbitrary structure composed of `collections` of `documents` and `values`.
+## Codeophon
 
-``` typescript
-const data = {
-    // collections
-    aCollection: [
-    ],
-
-    // or values
-    aValue: 'value',
-};
-```
-
-A `collection` is a specialized `list`.
-
-``` typescript
-const data = {
-    // a normal list
-    list: [
-        'one',
-        'two,
-    ],
-    collection: [
-        // the first item is always a marker for the collection type
-        {
-            type: 'collection',
-        },
-
-        // the other elements are any type the collection holds
-        // and is available to the public interface
-        {
-            one: 'two',
-        },
-    ],
-}
-```
-
-A `value` can be a `number`, a `string`, a `boolean`, a `map`.
-
-A `document` can contain arbitrary `values` and `collections`.
-
-
-
-## Packages
-
-<a target="_blank" href="https://www.npmjs.com/package/@plurid/loque">
-    <img src="https://img.shields.io/npm/v/@plurid/loque.svg?logo=npm&colorB=1380C3&style=for-the-badge" alt="Version">
-</a>
-
-[@plurid/loque-javascript][loque-javascript] • the `JavaScript`/`TypeScript` implementation
-
-[loque-javascript]: https://github.com/plurid/loque/tree/master/packages/loque-javascript
-
-
-
-## [Codeophon](https://github.com/ly3xqhl8g9/codeophon)
-
-+ licensing: [delicense](https://github.com/ly3xqhl8g9/delicense)
-+ versioning: [αver](https://github.com/ly3xqhl8g9/alpha-versioning)
+- Licensing: [delicense](https://github.com/ly3xqhl8g9/delicense)
+- Versioning: [αver](https://github.com/ly3xqhl8g9/alpha-versioning)

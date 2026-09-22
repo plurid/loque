@@ -1,12 +1,19 @@
 import api = require('@plurid/loque');
 
-const data = { records: [{ id: '1', value: 'one' }] };
-const statements: api.LocatorStatements = api.default.locate('records.id:1');
-const result: api.ExtractedLoque<{ id: string; value: string }> = api.default.extract(statements, data);
-const id: string = result.data.id;
-const updated: typeof data = new api.Updater(statements, data, { value: 'updated' }).result();
+const state: api.Snapshot = api.default.snapshot({ records: [{ id: '1', value: 'one' }] });
+const query: api.Query = api.query().field('records').each().where(api.eq(api.field('id'), api.literal('1')));
+const selection: api.Selection = state.select(api.fromIR(query.toIR()));
+const values: readonly api.JsonValue[] = selection.values();
+const plan: api.MutationPlan = selection.plan({ op: 'merge', value: { reviewed: true } });
+const next: api.Snapshot = plan.apply();
 
-// @ts-expect-error The CommonJS declarations preserve the selected data type.
-const invalidId: number = result.data.id;
+export function rejectInvalidUsage(): void {
+    // @ts-expect-error The CommonJS declarations require result narrowing.
+    void values[0].id;
+    // @ts-expect-error The CommonJS declarations keep plans readonly.
+    plan.operations.push({ op: 'remove', path: '' });
+    // @ts-expect-error Snapshots are immutable.
+    next.value = null;
+}
 
-export { id, updated, invalidId };
+export { values, next };

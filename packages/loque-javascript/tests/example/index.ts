@@ -1,37 +1,16 @@
-/**
- * data contains
- * `one` which is a collection
- * with a document with `id` `1`
- * and a document-(sub)-collection `two`
- * with another document
- *
- * Locators:
- *
- * > `one.id:1` // gets the document
- * > `one.id.1.two` // gets the subcollection
- * > `one.id:1.two.id:1-1` // gets the document from the subcollection
- *
- * > `three` // actually gets the value
- * > `three.id:1` // will fail since `three` is not a collection
- *
- * > `four` // actually gets the value
- * > `four.id:1` // will fail since `four` is not a collection
- */
+import { snapshot, query, field, literal, eq } from '../../source';
+
 const data = {
-    one: [
-        {
-            id: '1',
-            a: 'document',
-            two: [
-                {
-                    id: '1-1',
-                    another: 'document',
-                },
-            ],
-        },
+    records: [
+        { id: '1', children: [{ id: '1-1', value: 'nested' }] },
+        { id: '2', children: [] },
     ],
-    three: 'value',
-    four: {
-        five: 'six',
-    },
 };
+const state = snapshot(data);
+const selected = state.select(query().field('records').each()
+    .where(eq(field('id'), literal('1'))).field('children').each());
+const plan = selected.plan({ op: 'merge', value: { reviewed: true } });
+
+export const values = selected.values();
+export const operations = plan.operations;
+export const updated = plan.apply().value;

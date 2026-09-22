@@ -47,19 +47,38 @@ node scripts/check-package.mjs --runtime-only /path/to/loque.tgz
 The GitHub Actions workflow verifies Node 22, 24, and 26, then tests the packed
 artifact on Node 22.0.0 without installing build tools on that older runtime.
 
-## Current baseline and follow-up
+## Runtime architecture
 
-The 12 existing assertion-bearing unit tests are preserved. Nested extraction is
-an explicit TODO because traversal is not implemented. Coverage includes all
-production TypeScript, rather than only the public barrel. Thresholds are the
-initial measured percentages rounded down: statements 63%, branches 51%,
-functions 64%, and lines 62%. They should rise as behavior tests are added.
-Explicit `any` and unused scaffolding remain allowed by lint during
-this tooling migration; strict TypeScript checking remains enabled.
+The source is organized around a single JSON selection pipeline:
 
-The next phase must define query behavior before changing implementation:
-comparison operators, literal types, nested paths, cursor pagination, errors,
-and `&`/`|` semantics. The current README uses `id:1 & id:2` to combine matches;
-conventional boolean AND must not be assumed. That contract will guide shared
-selection logic, parser validation, public-type improvements, regression tests,
-and updates to the API documentation.
+- `json.ts` validates and copies JSON, handles pointers, and shares navigation and equality rules.
+- `ir.ts` validates versioned query structures; `query.ts` builds the same immutable IR.
+- `evaluate.ts` selects snapshot nodes with deterministic traversal and predicates.
+- `mutation.ts` validates intents and targets, compiles patches, and applies generated operations.
+- `snapshot.ts` owns the frozen state and binds selections/plans to it.
+- `types.ts`, `errors.ts`, and `index.ts` define the public contract.
+
+Selections never traverse a partially updated document. Mutation application is
+internal and accepts only generated operations. The public API does not ingest
+arbitrary patches or attach a plan to a different snapshot.
+
+## Verification contract
+
+Behavior tests cover JSON ownership/validation, nested traversal, predicates,
+portable IR, mutation plans, escaped pointers, safe property handling, and
+immutable application. The compiler also has direct conflict tests because the
+current downward-only traversal cannot produce overlapping targets.
+
+Coverage includes all production TypeScript, excluding tests. Required floors are
+90% statements, lines, and functions, and 85% branches. Explicit `any`, unused
+variables, and empty-function scaffolding are no longer allowed by lint.
+
+Consumer fixtures exercise the packed ESM and CommonJS APIs, portable-query
+round trips, mutation application, and errors. Type fixtures cover readonly
+results, required narrowing, and invalid query/mutation arguments. The browser
+fixture selects and updates data without Node builtins. All verification commands
+must leave tracked source and the lockfile unchanged.
+
+See the package README for the JSON contract, IR layout, comparison semantics,
+and breaking migration. Judgment execution, the textual DSL, pagination,
+arbitrary patch intake, and persistent stores remain future work.

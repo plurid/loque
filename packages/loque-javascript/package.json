@@ -1,7 +1,7 @@
 {
     "name": "@plurid/loque",
     "version": "0.0.0-0",
-    "description": "Object Data Locator, Extractor, Updater",
+    "description": "Deterministic JSON selections and immutable mutation plans",
     "keywords": [
         "data",
         "loque"
