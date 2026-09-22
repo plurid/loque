@@ -30,6 +30,7 @@ send the edits before applying them.
 - [Read the results](#read-the-results)
 - [Change the selected data](#change-the-selected-data)
 - [Save and reuse queries](#save-and-reuse-queries)
+- [Work with probabilistic decisions](#work-with-probabilistic-decisions)
 - [Use the results in TypeScript](#use-the-results-in-typescript)
 - [Data and execution model](#data-and-execution-model)
 - [Handle errors](#handle-errors)
@@ -585,6 +586,133 @@ Queries contain data and operators rather than JavaScript predicate callbacks.
 Your application chooses which document to query and whether to apply any
 resulting edits. The serialized query does not contain the snapshot or its values.
 
+## Work with probabilistic decisions
+
+Loque can validate a probability distribution supplied by your application or an
+evaluator. Define the possible outcomes, then parse the result data:
+
+```ts
+import { booleanDecision, choiceDecision, scoreDecision } from '@plurid/loque';
+
+const intent = choiceDecision(['refund', 'replacement', 'question', 'other']);
+const decisionProvenance = {
+    evaluator: 'support-evaluator',
+    evaluatorVersion: '1',
+    model: 'support-model-v1',
+    judgment: 'ticket-intent',
+    judgmentVersion: '1',
+    inputHash: 'example-input-hash',
+    timestamp: '2026-09-22T12:00:00.000Z',
+};
+
+const intentResult = intent.parse({
+    distribution: [
+        { value: 'refund', probability: 0.91 },
+        { value: 'replacement', probability: 0.04 },
+        { value: 'question', probability: 0.03 },
+        { value: 'other', probability: 0.02 },
+    ],
+    provenance: decisionProvenance,
+});
+
+intentResult.value;
+// 'refund'
+
+intentResult.probability('refund');
+// 0.91
+
+const shouldReviewRefund = intentResult.probability('refund') >= 0.9;
+```
+
+The result retains every probability. `.value` is the most probable outcome;
+your application chooses a threshold or other policy before taking action.
+Parsing is synchronous and uses the supplied data. It does not invoke an
+evaluator or add a judgment to a query.
+
+### Boolean and numeric outcomes
+
+`booleanDecision()` defines the outcomes `false` and `true`. `scoreDecision`
+accepts finite numeric outcomes in strictly increasing order:
+
+```ts
+const reviewResult = booleanDecision().parse({
+    distribution: [
+        { value: false, probability: 0.25 },
+        { value: true, probability: 0.75 },
+    ],
+    provenance: { ...decisionProvenance, judgment: 'needs-review' },
+});
+
+reviewResult.probability(true);
+// 0.75
+
+const urgency = scoreDecision([1, 2, 3, 4, 5]);
+const urgencyResult = urgency.parse({
+    distribution: [
+        { value: 1, probability: 0 },
+        { value: 2, probability: 0 },
+        { value: 3, probability: 0.25 },
+        { value: 4, probability: 0.5 },
+        { value: 5, probability: 0.25 },
+    ],
+    provenance: { ...decisionProvenance, judgment: 'urgency' },
+});
+
+urgencyResult.value;
+// 4
+
+urgencyResult.expected;
+// 4
+```
+
+`.expected` is the weighted mean: the sum of each score times its probability,
+divided by the total probability. It may lie between the declared scores, and
+uses floating-point arithmetic. Only score results expose this property.
+
+### Validation, ownership, and serialization
+
+- Choice outcomes are a nonempty array of distinct, nonblank strings. Score
+  outcomes are a nonempty, strictly increasing array of finite numbers. Singleton
+  outcome spaces are valid.
+- A distribution must contain every declared outcome exactly once, including
+  outcomes with zero probability. Values are matched without type coercion.
+- Each probability must be finite and between `0` and `1`. The total must be
+  within `1e-9` of `1` to accommodate rounding. Reported probabilities are
+  preserved without normalization.
+- Results put entries in definition order. Ties choose the first outcome in that
+  order: `false` for booleans, the first declared choice, or the lowest score.
+- All seven provenance fields shown above are required, nonblank strings.
+  `timestamp` must use the canonical UTC format returned by `Date.toISOString()`.
+  The application supplies the identities and input hash; Loque validates their
+  shape, not their authenticity. `example-input-hash` is a placeholder.
+
+Each definition exposes readonly `.kind` and `.outcomes` properties, plus
+`.parse(input)`. Definitions copy their outcome arrays. Parsing validates and
+copies the result data, then freezes its distribution and provenance. Invalid definitions or result
+data throw `LoqueError` with code `INVALID_DECISION`. Looking up an undeclared
+outcome also throws, rather than returning a probability for it.
+
+Use `.toJSON()` to get readonly data suitable for a snapshot, or serialize the
+result directly with `JSON.stringify`:
+
+```ts
+const decisionJSON = JSON.stringify(intentResult);
+const restoredIntent = intent.parse(JSON.parse(decisionJSON));
+
+restoredIntent.probability('refund');
+// 0.91
+
+const recordedDecision = snapshot(intentResult.toJSON());
+```
+
+The serialized shape is `{ distribution, provenance }`. Keep the corresponding
+definition to restore a result. Methods, `.value`, and `.expected` are derived
+again when parsing; they are not stored in the serialized data.
+
+In TypeScript, inline outcome arrays preserve their literal types.
+`intentResult.probability('refund')` is valid; an undeclared label is a type error.
+`.parse(unknown)` also validates data received from untyped callers or JSON.
+
 ## Use the results in TypeScript
 
 Loque exports readonly types for its data, queries, results, and plans. Selected
@@ -674,6 +802,7 @@ try {
 | `INVALID_JSON` | Undefined property, non-finite number, cyclic input | Location inside the snapshot input |
 | `INVALID_QUERY` | Negative index, unknown IR operator, invalid predicate | Location inside the query definition |
 | `INVALID_MUTATION` | Non-object merge target, invalid payload, root removal | Invalid part of the intent, or the targeted location in the snapshot |
+| `INVALID_DECISION` | Invalid outcomes, incomplete distribution, invalid probability or provenance | Location inside the definition's outcome array or parsed result data; root for an invalid probability lookup |
 
 Paths use JSON Pointer; `''` means the root. Use the code for programmatic handling
 and the message for additional context. A valid query finding no matches returns
@@ -692,6 +821,12 @@ an empty selection. It does not throw.
 | `selection.plan(mutation)` | A `MutationPlan` with `.matchCount`, `.operations`, and `.apply()` |
 | `plan.apply()` | A new `Snapshot` |
 | `query.toIR()` | Readonly `QueryIR` |
+| `booleanDecision()` | A `BooleanDecision` with outcomes `false` and `true` |
+| `choiceDecision(outcomes)` | A `ChoiceDecision<T>` for string outcomes |
+| `scoreDecision(outcomes)` | A `ScoreDecision<T>` for numeric outcomes |
+| `definition.parse(input: unknown)` | A `DecisionResult<T>`; score definitions return `ScoreDecisionResult<T>` with `.expected` |
+| `decision.probability(value)` | The reported probability of a declared outcome |
+| `decision.toJSON()` | Readonly `DecisionData<T>` containing distribution and provenance |
 
 The query methods are `.field(key)`, `.index(index)`, `.each()`, and
 `.where(predicate)`. Each returns another `Query`. Expression helpers are
@@ -734,6 +869,9 @@ namespace.query();
 | `QueryIR`, `QueryStepIR`, `ExpressionIR`, `PredicateIR`, `ComparisonOperator` | Serializable query format |
 | `Mutation`, `MutationPlan`, `PatchOperation` | Mutation intents, captured plans, and generated operations |
 | `LoqueErrorCode` | Error-code union |
+| `DecisionDefinition`, `BooleanDecision`, `ChoiceDecision`, `ScoreDecision` | Declared outcome spaces and result parsers |
+| `DecisionValue`, `DecisionProbability`, `DecisionProvenance`, `DecisionData` | Outcome values, probability entries, and portable result data |
+| `DecisionResult`, `ScoreDecisionResult` | Immutable probability results and numeric expectations |
 
 ### IR node shapes
 

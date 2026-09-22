@@ -70,3 +70,59 @@ export interface Snapshot {
     readonly value: JsonValue;
     select(query: Query): Selection;
 }
+
+export type DecisionValue = boolean | string | number;
+
+export interface DecisionProbability<T extends DecisionValue = DecisionValue> {
+    readonly value: T;
+    readonly probability: number;
+}
+
+/** Caller-supplied identity of the evaluation that produced a distribution. */
+export interface DecisionProvenance {
+    readonly evaluator: string;
+    readonly evaluatorVersion: string;
+    readonly model: string;
+    readonly judgment: string;
+    readonly judgmentVersion: string;
+    readonly inputHash: string;
+    readonly timestamp: string;
+}
+
+/** Portable result data; the definition supplies its outcome space. */
+export interface DecisionData<T extends DecisionValue = DecisionValue> {
+    readonly distribution: readonly DecisionProbability<T>[];
+    readonly provenance: DecisionProvenance;
+}
+
+export interface DecisionResult<T extends DecisionValue = DecisionValue> extends DecisionData<T> {
+    /** Most probable outcome; ties follow the definition's outcome order. */
+    readonly value: T;
+    probability(value: T): number;
+    toJSON(): DecisionData<T>;
+}
+
+export interface ScoreDecisionResult<T extends number = number> extends DecisionResult<T> {
+    /** Probability-weighted mean over the declared numeric outcomes. */
+    readonly expected: number;
+}
+
+export interface DecisionDefinition<T extends DecisionValue = DecisionValue> {
+    readonly kind: 'boolean' | 'choice' | 'score';
+    readonly outcomes: readonly T[];
+    parse(input: unknown): DecisionResult<T>;
+}
+
+export interface BooleanDecision extends DecisionDefinition<boolean> {
+    readonly kind: 'boolean';
+    readonly outcomes: readonly [false, true];
+}
+
+export interface ChoiceDecision<T extends string = string> extends DecisionDefinition<T> {
+    readonly kind: 'choice';
+}
+
+export interface ScoreDecision<T extends number = number> extends DecisionDefinition<T> {
+    readonly kind: 'score';
+    parse(input: unknown): ScoreDecisionResult<T>;
+}

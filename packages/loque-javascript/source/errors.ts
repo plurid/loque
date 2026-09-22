@@ -1,4 +1,4 @@
-export type LoqueErrorCode = 'INVALID_JSON' | 'INVALID_QUERY' | 'INVALID_MUTATION';
+export type LoqueErrorCode = 'INVALID_JSON' | 'INVALID_QUERY' | 'INVALID_MUTATION' | 'INVALID_DECISION';
 
 export class LoqueError extends Error {
     readonly code: LoqueErrorCode;

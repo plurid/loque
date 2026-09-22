@@ -4,6 +4,11 @@ import * as esm from '@plurid/loque';
 
 const require = createRequire(import.meta.url);
 const commonjs = require('@plurid/loque');
+const provenance = {
+    evaluator: 'fixture', evaluatorVersion: '1', model: 'fixture-v1',
+    judgment: 'review', judgmentVersion: '1', inputHash: 'fixture-input',
+    timestamp: '2026-09-22T12:00:00.000Z',
+};
 
 for (const [format, api] of [['ESM', esm], ['CommonJS', commonjs]]) {
     const loque = api.default;
@@ -56,7 +61,32 @@ for (const [format, api] of [['ESM', esm], ['CommonJS', commonjs]]) {
         error => error instanceof api.LoqueError && error.code === 'INVALID_MUTATION');
     assert.throws(() => loque.snapshot({ bad: undefined }),
         error => error instanceof api.LoqueError && error.path === '/bad');
-    console.log(`${format}: snapshots, portable queries, selections, and immutable plans passed`);
+
+    const review = loque.booleanDecision().parse({
+        distribution: [{ value: false, probability: 0.25 }, { value: true, probability: 0.75 }],
+        provenance,
+    });
+    assert.equal(review.value, true);
+    assert.equal(review.probability(true), 0.75);
+    assert.ok(Object.isFrozen(review.distribution[0]));
+    assert.ok(Object.isFrozen(review.provenance));
+    const choice = loque.choiceDecision(['refund', 'other']);
+    const decision = choice.parse({
+        distribution: [{ value: 'other', probability: 0.25 }, { value: 'refund', probability: 0.75 }],
+        provenance,
+    });
+    assert.equal(decision.value, 'refund');
+    assert.deepEqual(choice.parse(JSON.parse(JSON.stringify(decision))).toJSON(), decision.toJSON());
+    assert.deepEqual(loque.snapshot(decision.toJSON()).value, decision.toJSON());
+    const score = loque.scoreDecision([1, 2]).parse({
+        distribution: [{ value: 1, probability: 0.25 }, { value: 2, probability: 0.75 }],
+        provenance,
+    });
+    assert.equal(score.value, 2);
+    assert.equal(score.expected, 1.75);
+    assert.throws(() => review.probability('true'),
+        error => error instanceof api.LoqueError && error.code === 'INVALID_DECISION');
+    console.log(`${format}: snapshots, queries, plans, and probabilistic decisions passed`);
 }
 
 // Serialized builders also interoperate across the separately bundled formats.

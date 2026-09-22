@@ -1,7 +1,11 @@
 import loque, {
     snapshot, query, fromIR, current, field, literal, eq, and, isIn,
+    booleanDecision, choiceDecision, scoreDecision,
     type JsonValue, type JsonObject, type QueryIR, type Query, type Selection,
     type NodeRef, type Snapshot, type Mutation, type MutationPlan, type PatchOperation,
+    type BooleanDecision, type ChoiceDecision, type ScoreDecision,
+    type DecisionDefinition, type DecisionData, type DecisionResult, type ScoreDecisionResult,
+    type DecisionProvenance, type DecisionProbability, type DecisionValue,
 } from '@plurid/loque';
 
 // Named interfaces need no index signature: input is validated at runtime.
@@ -27,6 +31,32 @@ const count: number = selection.count();
 const paths: readonly string[] = selection.paths();
 const scalar = loque.snapshot('value').select(loque.query().where(eq(current(), literal('value')))).first()?.value;
 const narrowed: string | undefined = typeof scalar === 'string' ? scalar : undefined;
+const provenance: DecisionProvenance = {
+    evaluator: 'fixture', evaluatorVersion: '1', model: 'fixture-v1',
+    judgment: 'review', judgmentVersion: '1', inputHash: 'fixture-input',
+    timestamp: '2026-09-22T12:00:00.000Z',
+};
+const binary: BooleanDecision = booleanDecision();
+const choice: ChoiceDecision<'refund' | 'other'> = choiceDecision(['refund', 'other']);
+const scores: ScoreDecision<1 | 2> = scoreDecision([1, 2]);
+const definition: DecisionDefinition<boolean> = binary;
+const decisionData: DecisionData<'refund' | 'other'> = {
+    distribution: [{ value: 'refund', probability: 0.75 }, { value: 'other', probability: 0.25 }],
+    provenance,
+};
+const decision: DecisionResult<'refund' | 'other'> = choice.parse(decisionData);
+const chosen: 'refund' | 'other' = decision.value;
+const outcome: DecisionValue = chosen;
+const probability: number = decision.probability('refund');
+const entry: DecisionProbability<'refund' | 'other'> = decision.distribution[0];
+const portable: DecisionData<'refund' | 'other'> = decision.toJSON();
+const score: ScoreDecisionResult<1 | 2> = scores.parse({
+    distribution: [{ value: 1, probability: 0.25 }, { value: 2, probability: 0.75 }], provenance,
+});
+const expected: number = score.expected;
+const booleanResult: DecisionResult<boolean> = loque.booleanDecision().parse({
+    distribution: [{ value: false, probability: 0.25 }, { value: true, probability: 0.75 }], provenance,
+});
 
 export function rejectInvalidUsage(): void {
     // @ts-expect-error JSON results need narrowing before object property access.
@@ -55,7 +85,30 @@ export function rejectInvalidUsage(): void {
     ir.steps.push({ op: 'each' });
     // @ts-expect-error The namespace rejects methods outside the public API.
     loque.extract('records.id:1', data);
+    // @ts-expect-error Choice outcomes must be strings.
+    choiceDecision([1, 2]);
+    // @ts-expect-error Score outcomes must be numeric.
+    scoreDecision(['low', 'high']);
+    // @ts-expect-error Outcome inference rejects undeclared labels.
+    decision.probability('unknown');
+    // @ts-expect-error Numeric outcome inference rejects undeclared scores.
+    score.probability(3);
+    // @ts-expect-error Boolean outcomes are not string labels.
+    booleanResult.probability('true');
+    // @ts-expect-error Only score results have numeric expectations.
+    void decision.expected;
+    // @ts-expect-error Definitions own readonly outcome arrays.
+    choice.outcomes.push('refund');
+    // @ts-expect-error Distribution entries are readonly.
+    decision.distribution[0].probability = 1;
+    // @ts-expect-error Provenance is readonly.
+    decision.provenance.model = 'changed';
+    // @ts-expect-error Serialized data is also readonly.
+    portable.distribution.push({ value: 'refund', probability: 1 });
     void document;
 }
 
-export { state, imported, nodes, values, first, operations, root, count, paths, narrowed };
+export {
+    state, imported, nodes, values, first, operations, root, count, paths, narrowed,
+    definition, outcome, probability, entry, portable, expected,
+};
