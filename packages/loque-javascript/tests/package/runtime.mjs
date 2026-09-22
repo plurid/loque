@@ -86,7 +86,41 @@ for (const [format, api] of [['ESM', esm], ['CommonJS', commonjs]]) {
     assert.equal(score.expected, 1.75);
     assert.throws(() => review.probability('true'),
         error => error instanceof api.LoqueError && error.code === 'INVALID_DECISION');
-    console.log(`${format}: snapshots, queries, plans, and probabilistic decisions passed`);
+
+    const fraud = loque.judgment({
+        name: 'fraud', version: '1', evaluator: 'rules', decision: loque.booleanDecision(),
+        project: order => ({ note: order.note }),
+    });
+    const rules = loque.ruleEvaluator({
+        name: 'rules', version: '1', model: 'keywords',
+        decide: input => {
+            const yes = input.note.includes('stolen') ? 0.97 : 0.1;
+            return [{ value: false, probability: 1 - yes }, { value: true, probability: yes }];
+        },
+    });
+    const cache = loque.memoryCache();
+    const rt = loque.runtime({ judgments: [fraud], evaluators: [rules], cache });
+    const orders = loque.snapshot({ orders: [
+        { id: 'a', total: 1500, note: 'stolen card' },
+        { id: 'b', total: 50, note: 'stolen card' },
+        { id: 'c', total: 2000, note: 'fine' },
+    ] });
+    const suspicious = loque.fromIR(JSON.parse(JSON.stringify(loque.query().field('orders').each().where(loque.and(
+        loque.gt(loque.field('total'), loque.literal(1000)),
+        loque.gte(loque.probability('fraud', true), loque.literal(0.95)),
+    )).sort(loque.field('total'), 'desc').limit(10).toIR())));
+    const judged = await rt.select(orders, suspicious);
+    assert.deepEqual(judged.paths(), ['/orders/0']);
+    assert.deepEqual(judged.stats, { evaluations: 2, cacheHits: 0, calls: 1 });
+    assert.equal(judged.decisions()[0].decision.probability(true), 0.97);
+    assert.deepEqual(judged.plan({ op: 'merge', value: { review: true } }).operations,
+        [{ op: 'add', path: '/orders/0/review', value: true }]);
+    assert.deepEqual((await rt.explain(orders, suspicious)).exact, true);
+    assert.deepEqual((await rt.select(orders, suspicious)).stats, { evaluations: 0, cacheHits: 2, calls: 0 });
+    assert.throws(() => orders.select(suspicious), error => error instanceof api.LoqueError && error.code === 'INVALID_QUERY');
+    await assert.rejects(rt.select(loque.snapshot({ orders: [{ total: 5000, note: 'new' }] }), suspicious, { maxEvaluations: 0 }),
+        error => error instanceof api.LoqueError && error.code === 'BUDGET_EXCEEDED');
+    console.log(`${format}: snapshots, queries, plans, decisions, and the judgment runtime passed`);
 }
 
 // Serialized builders also interoperate across the separately bundled formats.

@@ -16,3 +16,15 @@ const score = loque.scoreDecision([1, 2]).parse({
     },
 });
 export const expectedScore = score.expected;
+
+const rt = loque.runtime({
+    judgments: [loque.judgment({ name: 'flag', version: '1', evaluator: 'rules', decision: loque.booleanDecision() })],
+    evaluators: [loque.ruleEvaluator({
+        name: 'rules', version: '1', model: 'fixture',
+        decide: input => [{ value: false, probability: input.id === '1' ? 0 : 1 }, { value: true, probability: input.id === '1' ? 1 : 0 }],
+    })],
+});
+const judged = await rt.select(state, loque.query().field('records').each()
+    .where(loque.eq(loque.decision('flag'), loque.literal(true))));
+export const judgedPaths = judged.paths();
+export const judgedStats = judged.stats;

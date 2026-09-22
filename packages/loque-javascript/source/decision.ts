@@ -2,9 +2,21 @@ import { LoqueError } from './errors';
 import { shape } from './ir';
 import { copyJson, isArray } from './json';
 import type {
-    BooleanDecision, ChoiceDecision, DecisionData, DecisionProbability, DecisionProvenance,
+    BooleanDecision, ChoiceDecision, DecisionData, DecisionDefinition, DecisionProbability, DecisionProvenance,
     DecisionResult, DecisionValue, ScoreDecision,
 } from './types';
+
+const definitions = new WeakSet<object>();
+
+/** Judgments accept only definitions whose parsers enforce these invariants. */
+export function isDecisionDefinition(value: unknown): value is DecisionDefinition {
+    return value !== null && typeof value === 'object' && definitions.has(value);
+}
+
+function register<T extends DecisionDefinition>(definition: T): T {
+    definitions.add(Object.freeze(definition));
+    return definition;
+}
 
 const probabilityTolerance = 1e-9;
 const provenanceKeys = [
@@ -110,19 +122,19 @@ function expected(distribution: readonly DecisionProbability<number>[]): number 
 /** Define a binary outcome space, ordered false then true for ties. */
 export function booleanDecision(): BooleanDecision {
     const values = Object.freeze([false, true] as const);
-    return Object.freeze({ kind: 'boolean', outcomes: values, parse: (input: unknown) => parse(values, input) });
+    return register({ kind: 'boolean', outcomes: values, parse: (input: unknown) => parse(values, input) });
 }
 
 /** Define a nonempty set of distinct string outcomes in tie-breaking order. */
 export function choiceDecision<const T extends string>(input: readonly T[]): ChoiceDecision<T> {
     const values = outcomes(input, 'choice');
-    return Object.freeze({ kind: 'choice', outcomes: values, parse: (input: unknown) => parse(values, input) });
+    return register({ kind: 'choice', outcomes: values, parse: (input: unknown) => parse(values, input) });
 }
 
 /** Define finite numeric outcomes in strictly increasing order. */
 export function scoreDecision<const T extends number>(input: readonly T[]): ScoreDecision<T> {
     const values = outcomes(input, 'score');
-    return Object.freeze({
+    return register({
         kind: 'score',
         outcomes: values,
         parse(input: unknown) {

@@ -1,6 +1,8 @@
 import { LoqueError, type LoqueErrorCode } from './errors';
 import { appendPointer, copyJson, isArray, isObject } from './json';
-import type { ExpressionIR, JsonObject, JsonValue, PredicateIR, QueryIR } from './types';
+import type {
+    DeterministicExpressionIR, ExpressionIR, JsonObject, JsonValue, JudgmentExpressionIR, PredicateIR, Query, QueryIR,
+} from './types';
 
 export function shape(
     value: JsonValue, keys: readonly string[], path: string, code: LoqueErrorCode = 'INVALID_QUERY',
@@ -20,13 +22,24 @@ function invalid(message: string, path: string): never {
 
 function index(value: JsonValue, path: string): void {
     if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-        invalid('Expected a non-negative safe integer index', path);
+        invalid('Expected a non-negative safe integer', path);
     }
 }
 
-function expression(value: JsonValue, path: string): asserts value is ExpressionIR {
+function expression(value: JsonValue, path: string, deterministic = false): asserts value is ExpressionIR {
     if (!isObject(value)) invalid('Expected an expression', path);
     switch (value.op) {
+        case 'probability': case 'decision': case 'expected':
+            if (deterministic) invalid('Expected a deterministic expression', `${path}/op`);
+            shape(value, value.op === 'probability' ? ['op', 'judgment', 'input', 'outcome'] : ['op', 'judgment', 'input'], path);
+            if (typeof value.judgment !== 'string' || value.judgment.trim().length === 0) {
+                invalid('Expected a judgment name', `${path}/judgment`);
+            }
+            expression(value.input, `${path}/input`, true);
+            if (value.op === 'probability' && !['boolean', 'string', 'number'].includes(typeof value.outcome)) {
+                invalid('Expected a boolean, string, or number outcome', `${path}/outcome`);
+            }
+            return;
         case 'current':
             shape(value, ['op'], path);
             return;
@@ -76,9 +89,11 @@ function predicate(value: JsonValue, path: string): asserts value is PredicateIR
     }
 }
 
-export function expressionIR(input: unknown): ExpressionIR {
+export function expressionIR(input: unknown, deterministic: true): DeterministicExpressionIR;
+export function expressionIR(input: unknown): ExpressionIR;
+export function expressionIR(input: unknown, deterministic = false): ExpressionIR {
     const owned = copyJson(input, 'INVALID_QUERY');
-    expression(owned, '');
+    expression(owned, '', deterministic);
     return owned;
 }
 
@@ -112,10 +127,60 @@ export function queryIR(input: unknown): QueryIR {
                 shape(step, ['op', 'predicate'], path);
                 predicate(step.predicate, `${path}/predicate`);
                 return;
+            case 'sort':
+                shape(step, ['op', 'by', 'direction'], path);
+                expression(step.by, `${path}/by`, true);
+                if (step.direction !== 'asc' && step.direction !== 'desc') {
+                    invalid('Expected asc or desc', `${path}/direction`);
+                }
+                return;
+            case 'skip': case 'limit':
+                shape(step, ['op', 'count'], path);
+                index(step.count, `${path}/count`);
+                return;
             default:
                 invalid('Unknown query step', `${path}/op`);
         }
     });
     // Every discriminant, required field, and nested node has been validated.
     return owned as QueryIR;
+}
+
+/** Validate a builder or structural query implementation when it is executed. */
+export function queryOf(query: Query): QueryIR {
+    if (query === null || typeof query !== 'object' || typeof query.toIR !== 'function') {
+        throw new LoqueError('INVALID_QUERY', 'Expected a query builder; use fromIR for serialized queries');
+    }
+    return queryIR(query.toIR());
+}
+
+export interface LocatedJudgment {
+    readonly expression: JudgmentExpressionIR;
+    readonly path: string;
+}
+
+/** Every judgment expression in a validated query, with its IR location. */
+export function judgmentExpressions(ir: QueryIR): LocatedJudgment[] {
+    const found: LocatedJudgment[] = [];
+    const visitExpression = (value: ExpressionIR, path: string): void => {
+        if (value.op === 'probability' || value.op === 'decision' || value.op === 'expected') {
+            found.push({ expression: value, path });
+        }
+    };
+    const visit = (value: PredicateIR, path: string): void => {
+        switch (value.op) {
+            case 'and': case 'or':
+                value.predicates.forEach((item, position) => visit(item, `${path}/predicates/${position}`));
+                return;
+            case 'not': visit(value.predicate, `${path}/predicate`); return;
+            case 'in': case 'exists': visitExpression(value.value, `${path}/value`); return;
+            default:
+                visitExpression(value.left, `${path}/left`);
+                visitExpression(value.right, `${path}/right`);
+        }
+    };
+    ir.steps.forEach((step, position) => {
+        if (step.op === 'where') visit(step.predicate, `/steps/${position}/predicate`);
+    });
+    return found;
 }

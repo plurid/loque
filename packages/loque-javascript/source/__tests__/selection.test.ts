@@ -134,3 +134,28 @@ describe('predicates', () => {
         expect(snapshot(data).select(query().each().where(gte(current(), literal(2))).where(lte(current(), literal(3)))).values()).toEqual([2, 3]);
     });
 });
+
+describe('ordering and paging', () => {
+    const rows = query().each();
+    const state = snapshot([
+        { id: 'a', rank: 2 }, { id: 'b', rank: 'x' }, { id: 'c', rank: 1 }, { id: 'd' },
+        { id: 'e', rank: 2 }, { id: 'f', rank: null }, { id: 'g', rank: 'w' },
+    ]);
+    const ids = (built: ReturnType<typeof query>) => state.select(built.field('id')).values();
+
+    it('sorts numbers, then strings, then unsortable keys, stably', () => {
+        expect(ids(rows.sort(field('rank')))).toEqual(['c', 'a', 'e', 'g', 'b', 'd', 'f']);
+        expect(ids(rows.sort(field('rank'), 'desc'))).toEqual(['a', 'e', 'c', 'b', 'g', 'd', 'f']);
+        expect(ids(rows.sort(field('id'), 'desc'))).toEqual(['g', 'f', 'e', 'd', 'c', 'b', 'a']);
+    });
+
+    it('skips and limits in selection order, keeping original paths for plans', () => {
+        const page = rows.where(exists(field('rank'))).sort(field('rank')).skip(1).limit(2);
+        expect(state.select(page).paths()).toEqual(['/0', '/4']);
+        expect(ids(rows.limit(0))).toEqual([]);
+        expect(ids(rows.skip(99))).toEqual([]);
+        const removal = state.select(rows.sort(field('id'), 'desc').limit(3)).plan({ op: 'remove' });
+        expect(removal.operations.map(operation => operation.path)).toEqual(['/6', '/5', '/4']);
+        expect(removal.apply().select(rows.field('id')).values()).toEqual(['a', 'b', 'c', 'd']);
+    });
+});

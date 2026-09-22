@@ -28,7 +28,9 @@ export function defineValue(object: object, key: string, value: JsonValue): void
 }
 
 /** Validate before reading properties; never invoke accessors or toJSON. */
-export function copyJson(input: unknown, code: LoqueErrorCode = 'INVALID_JSON', freeze = true): JsonValue {
+export function copyJson(
+    input: unknown, code: LoqueErrorCode = 'INVALID_JSON', freeze = true, base = '',
+): JsonValue {
     const ancestors = new Set<object>();
 
     function copy(value: unknown, path: string): JsonValue {
@@ -70,7 +72,7 @@ export function copyJson(input: unknown, code: LoqueErrorCode = 'INVALID_JSON', 
         return freeze ? Object.freeze(result) : result;
     }
 
-    return copy(input, '');
+    return copy(input, base);
 }
 
 /** Freeze an already validated tree after applying generated operations. */

@@ -4,12 +4,18 @@
 
 # loque
 
-Query and update nested JSON data.
+Query and update nested JSON data, with conditions that can ask a model.
 
 Loque lets you describe **which values you want**, find them inside arrays and
 objects, and make changes at their exact locations. You can read the matches,
 inspect a list of proposed edits, and apply those edits to produce an updated
 copy of the document.
+
+Conditions can also use **judgments**: named questions such as "is this order
+fraudulent?" answered with probabilities by a model, classifier, or rule set you
+plug in. The model supplies probabilities; your query decides the threshold and
+the edit. Loque checks the cheap conditions first, sends each distinct question
+once, and caches the answers.
 
 For example: find pending orders worth at least 100, mark those orders for review,
 and keep the input available for comparison. Or select individual items inside
@@ -27,11 +33,13 @@ send the edits before applying them.
 - [How it works](#how-it-works)
 - [Navigate arrays and objects](#navigate-arrays-and-objects)
 - [Filter values](#filter-values)
+- [Sort and page results](#sort-and-page-results)
 - [Read the results](#read-the-results)
 - [Change the selected data](#change-the-selected-data)
 - [Save and reuse queries](#save-and-reuse-queries)
 - [Work with probabilistic decisions](#work-with-probabilistic-decisions)
 - [Use the results in TypeScript](#use-the-results-in-typescript)
+- [Use judgments in queries](#use-judgments-in-queries)
 - [Data and execution model](#data-and-execution-model)
 - [Handle errors](#handle-errors)
 - [API reference](#api-reference)
@@ -50,7 +58,9 @@ import { snapshot, query, field, literal, eq, gte, and } from '@plurid/loque';
 ```
 
 The package supports Node.js 22+ and modern browser bundlers, provides ESM and
-CommonJS builds, and has no runtime dependencies. For setup from a checkout,
+CommonJS builds, and has no runtime dependencies. The judgment runtime hashes
+with the platform's WebCrypto (`crypto.subtle`), which browsers expose in secure
+contexts. For setup from a checkout,
 see [Development](#development).
 
 ## First query and update
@@ -153,8 +163,10 @@ snapshot. It does not run the query again while making changes.
 
 This is useful when working with API responses, configuration documents, saved
 application state, or other structured data where you need both a conditional
-query and the ability to update what it finds. Loque executes synchronously in
-memory. Your application handles loading, displaying, and persisting the data.
+query and the ability to update what it finds. Deterministic queries execute
+synchronously in memory; queries with judgments run through an asynchronous
+[runtime](#use-judgments-in-queries). Your application handles loading,
+displaying, and persisting the data.
 
 ## Navigate arrays and objects
 
@@ -353,6 +365,25 @@ operand is false, including `ne`, and membership is false too. Negation works on
 the resulting boolean: `not(eq(field('note'), literal(null)))` selects both `b`
 and `c`, while `ne(field('note'), literal(null))` selects only `c`. Use `exists`
 when your condition must require a field to be present.
+
+## Sort and page results
+
+`.sort(expression, direction)` reorders the current selection; `.skip(n)` and
+`.limit(n)` page through it:
+
+```ts
+state.select(orders.sort(field('total'), 'desc').field('id')).values();
+// ['o-1', 'o-2', 'o-3']
+
+state.select(orders.sort(field('total')).skip(1).limit(1).field('id')).values();
+// ['o-2']
+```
+
+Sorting is stable. Numbers come first, then strings; nodes whose key is missing
+or of another type keep their document order after them. `'desc'` reverses the
+order among numbers and among strings. Sort keys use `field`, `current`, or
+`literal`, not judgments. Paths still point into the snapshot, so a sorted or
+paged selection can be planned and applied like any other.
 
 ## Read the results
 
@@ -626,8 +657,9 @@ const shouldReviewRefund = intentResult.probability('refund') >= 0.9;
 
 The result retains every probability. `.value` is the most probable outcome;
 your application chooses a threshold or other policy before taking action.
-Parsing is synchronous and uses the supplied data. It does not invoke an
-evaluator or add a judgment to a query.
+Parsing is synchronous and uses the supplied data. To have Loque obtain decisions
+while it filters, declare a judgment and use the runtime, described in
+[Use judgments in queries](#use-judgments-in-queries).
 
 ### Boolean and numeric outcomes
 
@@ -751,6 +783,216 @@ The returned document, selected values, node references, queries, and plans are
 readonly. Their JSON contents are frozen at runtime as well. Make edits through
 plans and work with the resulting snapshot.
 
+## Use judgments in queries
+
+A **judgment** is a named, versioned question with a decision definition. An
+**evaluator** answers it. A **runtime** binds both and runs queries that refer
+to judgments by name. The same principle holds throughout: the evaluator reports
+probabilities, and the query states the policy.
+
+### Declare judgments and an evaluator
+
+This example reuses `isRecord` from the previous section to read projected
+objects safely:
+
+```ts
+import { judgment, ruleEvaluator, runtime, probability, memoryCache } from '@plurid/loque';
+
+const fraud = judgment({
+    name: 'fraud',
+    version: '1',
+    evaluator: 'rules',
+    decision: booleanDecision(),
+    instructions: { question: 'Does this order show evidence of fraud?' },
+    project: order => isRecord(order) ? { note: order.note ?? null } : null,
+});
+
+const rules = ruleEvaluator({
+    name: 'rules',
+    version: '1',
+    model: 'keyword-rules-v1',
+    decide(input) {
+        const risky = isRecord(input) && typeof input.note === 'string' && input.note.includes('stolen');
+        const yes = risky ? 0.97 : 0.02;
+        return [{ value: false, probability: 1 - yes }, { value: true, probability: yes }];
+    },
+});
+
+const cache = memoryCache();
+const rt = runtime({ judgments: [fraud], evaluators: [rules], cache });
+```
+
+`project` chooses the part of the node sent to the evaluator. It controls
+privacy and cost, and it defines the cache identity: nodes with equal projections
+share one answer. Without `project`, the whole node is sent. `instructions` is
+arbitrary JSON passed to the evaluator unchanged, such as question text and
+criteria. `ruleEvaluator` wraps a local function (rules, a classifier, a test
+fixture) and fills in provenance; model-backed evaluators implement the
+[`Evaluator` interface](#write-an-evaluator).
+
+### Filter with probabilities
+
+Judgment expressions read a decision about the current node, or about another
+input you pass as the last argument:
+
+| Expression | Value |
+| --- | --- |
+| `probability(judgment, outcome, input?)` | The probability of that outcome |
+| `decision(judgment, input?)` | The most probable outcome |
+| `expected(judgment, input?)` | The expected value of a score judgment |
+
+Use them in predicates like any other expression, then run the query with
+`rt.select`:
+
+```ts
+const payments = snapshot({
+    orders: [
+        { id: 'p-1', total: 1500, note: 'stolen card reported' },
+        { id: 'p-2', total: 40, note: 'stolen card reported' },
+        { id: 'p-3', total: 2200, note: 'gift' },
+        { id: 'p-4', total: 3100, note: 'stolen card reported' },
+    ],
+});
+
+const suspicious = query().field('orders').each().where(and(
+    gt(field('total'), literal(1000)),
+    gte(probability(fraud, true), literal(0.95)),
+));
+
+const flagged = await rt.select(payments, suspicious);
+
+flagged.paths();
+// ['/orders/0', '/orders/3']
+
+flagged.stats;
+// { evaluations: 2, cacheHits: 0, calls: 1 }
+```
+
+The total check runs first, so `p-2` is never sent to the evaluator. `p-1` and
+`p-4` project to the same `{ note }`, so that question is asked once. Both
+distinct questions go in a single call. Judgments that cannot change a result
+are skipped: inside `and(...)`, a false deterministic condition settles the node;
+inside `or(...)`, a true one does. Later `.where()` steps evaluate judgments only
+for nodes that passed earlier steps.
+
+A judged selection is an ordinary selection, so the edit is still explicit:
+
+```ts
+const reviewFlagged = flagged.plan({ op: 'merge', value: { review: true } });
+
+reviewFlagged.operations;
+// [
+//     { op: 'add', path: '/orders/0/review', value: true },
+//     { op: 'add', path: '/orders/3/review', value: true },
+// ]
+```
+
+`flagged.decisions()` lists every decision consulted, with the path of the node
+it was consulted for, so the plan can be audited:
+
+```ts
+flagged.decisions().map(item => [item.path, item.judgment, item.decision.probability(true)]);
+// [
+//     ['/orders/0', 'fraud', 0.97],
+//     ['/orders/2', 'fraud', 0.02],
+//     ['/orders/3', 'fraud', 0.97],
+// ]
+```
+
+The synchronous `snapshot.select()` rejects queries containing judgments.
+Judgment expressions serialize like the rest of the IR, naming judgments rather
+than embedding them, so a saved query runs against whichever runtime defines
+those names.
+
+### Cache, budget, and explain
+
+Every answer is cached under a SHA-256 key of the evaluator name and version,
+the judgment name and version, and the canonical ([RFC 8785](https://www.rfc-editor.org/rfc/rfc8785.html))
+projected input. Rerunning a query over unchanged data makes no calls; changing
+a judgment's `version` or the evaluator's `version` invalidates its answers:
+
+```ts
+(await rt.select(payments, suspicious)).stats;
+// { evaluations: 0, cacheHits: 2, calls: 0 }
+```
+
+`memoryCache()` keeps answers for the life of the process. Any object with
+`get(key)` and `set(key, data)`, synchronous or asynchronous, can persist them
+elsewhere. Cached data is validated again when read.
+
+`rt.explain` reports the work a query needs without calling any evaluator:
+
+```ts
+const draft = query().field('orders').each().where(
+    gte(probability(fraud, true, literal({ note: 'new pattern' })), literal(0.5)),
+);
+
+const explanation = await rt.explain(payments, draft);
+
+explanation.evaluations;
+// 1
+
+explanation.exact;
+// false
+```
+
+Each entry of `explanation.steps` gives the node count entering and leaving a
+step, and for judgment steps the number of distinct questions, cache hits,
+uncached questions, and calls. When answers are missing, undecided nodes are
+counted as passing, so later counts are upper bounds and `exact` is `false`.
+
+Pass `maxEvaluations` to fail with `BUDGET_EXCEEDED` before calling an
+evaluator when a step needs more uncached answers than allowed, and `signal` to
+cancel:
+
+```ts
+const budgeted = await rt.select(payments, suspicious, { maxEvaluations: 10 });
+
+budgeted.count();
+// 2
+```
+
+### Write an evaluator
+
+An evaluator has a `name`, a `version`, an optional `maxBatchSize`, and an
+`evaluate(groups, { signal })` method. Each group is one projected input with
+every question asked about it:
+
+```ts
+import type { EvaluationGroup, Evaluator } from '@plurid/loque';
+
+const constant: Evaluator = {
+    name: 'constant',
+    version: '1',
+    maxBatchSize: 50,
+    evaluate: (groups: readonly EvaluationGroup[]) => groups.map(group => group.questions.map(question => ({
+        distribution: question.outcomes.map((value, index) => ({
+            value, probability: index === 0 ? 1 : 0,
+        })),
+        provenance: {
+            evaluator: 'constant',
+            evaluatorVersion: '1',
+            model: 'constant',
+            judgment: question.judgment,
+            judgmentVersion: question.judgmentVersion,
+            inputHash: group.inputHash,
+            timestamp: new Date().toISOString(),
+        },
+    }))),
+};
+```
+
+A group has `input`, its `inputHash`, and `questions`. Each question carries
+`judgment`, `judgmentVersion`, `kind` (`boolean`, `choice`, or `score`),
+`outcomes`, and `instructions`. Return one array per group and one decision data
+object per question, in order. Loque parses each answer with the judgment's
+decision definition and requires its provenance `evaluator`, `evaluatorVersion`,
+`judgment`, `judgmentVersion`, and `inputHash` to match the request. The model
+and timestamp are the evaluator's. Several judgments about the same projected
+input share a group, which suits providers that answer several questions about
+one state in a single request. Calls to different evaluators, and batches split
+by `maxBatchSize`, run concurrently.
+
 ## Data and execution model
 
 Loque accepts JSON trees:
@@ -777,6 +1019,13 @@ and freezes the result. The implementation works on documents in memory; factor
 those copies into your memory budget when processing large inputs. Structural
 sharing and object identity between snapshots are not API guarantees.
 
+A runtime selection reads the same frozen tree. Each `rt.select` call projects
+every judged node at most once per judgment and keeps its answers only in the
+cache you supply. Selection finishes, including every evaluator call, before a
+plan can be created, so evaluators never observe a partially edited document.
+Selections from `rt.select` do not stream: judgments before a `.limit()` are
+evaluated for every candidate that reaches them.
+
 ## Handle errors
 
 Invalid input or query definitions throw `LoqueError`, with a code and a path
@@ -802,7 +1051,10 @@ try {
 | `INVALID_JSON` | Undefined property, non-finite number, cyclic input | Location inside the snapshot input |
 | `INVALID_QUERY` | Negative index, unknown IR operator, invalid predicate | Location inside the query definition |
 | `INVALID_MUTATION` | Non-object merge target, invalid payload, root removal | Invalid part of the intent, or the targeted location in the snapshot |
-| `INVALID_DECISION` | Invalid outcomes, incomplete distribution, invalid probability or provenance | Location inside the definition's outcome array or parsed result data; root for an invalid probability lookup |
+| `INVALID_DECISION` | Invalid outcomes, incomplete distribution, invalid probability, provenance not matching the request | Location inside the definition's outcome array or the decision data (prefixed with `/group/question` for evaluator answers) |
+| `INVALID_JUDGMENT` | Invalid judgment or evaluator definition, duplicate names, non-JSON projection | Location inside the options, or inside the projected value |
+| `EVALUATION_FAILED` | Evaluator threw or rejected, returned the wrong number of answers, or the signal was aborted | `''`, or the group index; the original error is `cause` |
+| `BUDGET_EXCEEDED` | More uncached evaluations needed than `maxEvaluations` | `''` |
 
 Paths use JSON Pointer; `''` means the root. Use the code for programmatic handling
 and the message for additional context. A valid query finding no matches returns
@@ -827,11 +1079,19 @@ an empty selection. It does not throw.
 | `definition.parse(input: unknown)` | A `DecisionResult<T>`; score definitions return `ScoreDecisionResult<T>` with `.expected` |
 | `decision.probability(value)` | The reported probability of a declared outcome |
 | `decision.toJSON()` | Readonly `DecisionData<T>` containing distribution and provenance |
+| `judgment(options)` | A `Judgment<T>` with `name`, `version`, `evaluator`, `decision`, `instructions`, and `project` |
+| `ruleEvaluator(options)` | An `Evaluator` wrapping `decide(input, question)` |
+| `memoryCache()` | A `MemoryCache` with `get`, `set`, `size`, and `clear()` |
+| `runtime({ judgments, evaluators, cache? })` | A `Runtime` |
+| `rt.select(snapshot, query, options?)` | A promise of a `JudgedSelection`: a `Selection` plus `.decisions()` and `.stats` |
+| `rt.explain(snapshot, query)` | A promise of an `Explanation` |
 
-The query methods are `.field(key)`, `.index(index)`, `.each()`, and
-`.where(predicate)`. Each returns another `Query`. Expression helpers are
-`field`, `current`, and `literal`. Predicate helpers are `eq`, `ne`, `lt`, `lte`,
-`gt`, `gte`, `isIn`, `exists`, `and`, `or`, and `not`.
+The query methods are `.field(key)`, `.index(index)`, `.each()`,
+`.where(predicate)`, `.sort(by, direction?)`, `.skip(count)`, and
+`.limit(count)`. Each returns another `Query`. Expression helpers are `field`,
+`current`, and `literal`; judgment expression helpers are `probability`,
+`decision`, and `expected`. Predicate helpers are `eq`, `ne`, `lt`, `lte`, `gt`,
+`gte`, `isIn`, `exists`, `and`, `or`, and `not`.
 
 All these factory/helper functions are also available on the default namespace:
 
@@ -866,12 +1126,14 @@ namespace.query();
 | `JsonValue`, `JsonArray`, `JsonObject` | Readonly JSON data |
 | `JsonPointer`, `PathSegment` | Locations and relative path segments |
 | `Snapshot`, `Query`, `Selection`, `NodeRef` | Data capture, query construction, and results |
-| `QueryIR`, `QueryStepIR`, `ExpressionIR`, `PredicateIR`, `ComparisonOperator` | Serializable query format |
+| `QueryIR`, `QueryStepIR`, `ExpressionIR`, `DeterministicExpressionIR`, `JudgmentExpressionIR`, `PredicateIR`, `ComparisonOperator`, `SortDirection` | Serializable query format |
 | `Mutation`, `MutationPlan`, `PatchOperation` | Mutation intents, captured plans, and generated operations |
 | `LoqueErrorCode` | Error-code union |
 | `DecisionDefinition`, `BooleanDecision`, `ChoiceDecision`, `ScoreDecision` | Declared outcome spaces and result parsers |
 | `DecisionValue`, `DecisionProbability`, `DecisionProvenance`, `DecisionData` | Outcome values, probability entries, and portable result data |
 | `DecisionResult`, `ScoreDecisionResult` | Immutable probability results and numeric expectations |
+| `Judgment`, `JudgmentOptions`, `Evaluator`, `EvaluationGroup`, `EvaluationQuestion`, `EvaluationContext`, `RuleEvaluatorOptions` | Judgment definitions and the evaluator contract |
+| `Runtime`, `RuntimeOptions`, `SelectOptions`, `JudgedSelection`, `JudgedDecision`, `EvaluationStats`, `Explanation`, `ExplainStep`, `DecisionCache`, `MemoryCache` | Runtime execution, auditing, planning, and caching |
 
 ### IR node shapes
 
@@ -883,9 +1145,13 @@ A query is `{ version: 1, steps: [...] }`. The exported types define these nodes
 | Index step | `{ op: 'index', index: number }` |
 | Enumeration step | `{ op: 'each' }` |
 | Filter step | `{ op: 'where', predicate }` |
+| Sort step | `{ op: 'sort', by: expression, direction: 'asc' \| 'desc' }` |
+| Paging steps | `{ op: 'skip' \| 'limit', count: number }` |
 | Current value | `{ op: 'current' }` |
 | Relative field | `{ op: 'field', path: [segment, ...] }` |
 | Literal value | `{ op: 'literal', value }` |
+| Judgment probability | `{ op: 'probability', judgment: string, input: expression, outcome }` |
+| Judgment outcome or expectation | `{ op: 'decision' \| 'expected', judgment: string, input: expression }` |
 | Comparison | `{ op: 'eq' \| 'ne' \| 'lt' \| 'lte' \| 'gt' \| 'gte', left, right }` |
 | Membership | `{ op: 'in', value: expression, values: [...] }` |
 | Existence | `{ op: 'exists', value: expression }` |
@@ -893,7 +1159,8 @@ A query is `{ version: 1, steps: [...] }`. The exported types define these nodes
 | Negation | `{ op: 'not', predicate }` |
 
 A relative field path contains one or more string or non-negative integer
-segments. Mutation intents are `{ op: 'replace', value }`,
+segments. Judgment inputs and sort keys must be `current`, `field`, or `literal`
+expressions. Mutation intents are `{ op: 'replace', value }`,
 `{ op: 'merge', value: object }`, or `{ op: 'remove' }`.
 
 ## Development
@@ -907,8 +1174,10 @@ pnpm build
 pnpm verify
 ```
 
-`pnpm verify` runs lint, type checks, behavior tests with coverage, and checks of
-the packed ESM/CommonJS library, declarations, and browser bundle. See the
+`pnpm verify` runs lint, type checks, behavior tests with coverage, a check that
+every TypeScript example in this README compiles, runs, and produces the results
+shown, and checks of the packed ESM/CommonJS library, declarations, and browser
+bundle. See the
 [development guide](packages/loque-javascript/DEVELOPMENT.md) for all commands and the source layout.
 
 ## Codeophon

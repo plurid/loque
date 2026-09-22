@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'packages/loque-javascript/**'
+      - 'README.md'
       - '.github/workflows/loque-javascript.yml'
   pull_request:
     paths:
       - 'packages/loque-javascript/**'
+      - 'README.md'
       - '.github/workflows/loque-javascript.yml'
   workflow_dispatch:
 

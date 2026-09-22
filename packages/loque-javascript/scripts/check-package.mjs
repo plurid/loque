@@ -92,6 +92,8 @@ try {
         assert.deepEqual(browser.selected, { id: '1', value: 'one' });
         assert.deepEqual(browser.updated, { records: [{ id: '1', value: 'one', reviewed: true }] });
         assert.equal(browser.expectedScore, 1.75);
+        assert.deepEqual(browser.judgedPaths, ['/records/0']);
+        assert.deepEqual(browser.judgedStats, { evaluations: 1, cacheHits: 0, calls: 1 });
 
         const manifest = JSON.parse(await readFile(join(installedPackage, 'package.json'), 'utf8'));
         assert.equal(manifest.engines.node, '>=22');

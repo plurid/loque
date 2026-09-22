@@ -22,8 +22,9 @@ pnpm verify
 | `pnpm test` | Run unit tests once |
 | `pnpm test:watch` | Run unit tests in watch mode |
 | `pnpm test:coverage` | Report and enforce production-source coverage |
+| `pnpm check:docs` | Type-check and run the README examples and compare documented results |
 | `pnpm check:package` | Build, pack, and check isolated consumer fixtures |
-| `pnpm verify` | Run lint, types, coverage, and package checks |
+| `pnpm verify` | Run lint, types, coverage, docs, and package checks |
 
 The toolchain uses tsdown, Vitest/V8 coverage, ESLint flat configuration, and
 TypeScript 6. TypeScript stays on the 6.0 release line until compiler-API consumers
@@ -49,30 +50,54 @@ artifact on Node 22.0.0 without installing build tools on that older runtime.
 
 ## Runtime architecture
 
-The source contains the JSON selection pipeline and decision-value validation:
+The source has three layers: state (JSON snapshots, selection, and plans),
+intelligence (judgments answered by evaluators), and policy (queries that
+threshold those answers and choose edits):
 
 - `json.ts` validates and copies JSON, handles pointers, and shares navigation and equality rules.
-- `ir.ts` validates versioned query structures; `query.ts` builds the same immutable IR.
-- `evaluate.ts` selects snapshot nodes with deterministic traversal and predicates.
+- `ir.ts` validates versioned query structures and locates judgment expressions; `query.ts` builds the same immutable IR.
+- `evaluate.ts` implements traversal, sort/skip/limit, and three-valued predicate evaluation.
+  Unevaluated judgments are `Pending`, and `and`/`or` drop pending judgments once a sibling decides the result.
 - `mutation.ts` validates intents and targets, compiles patches, and applies generated operations.
-- `snapshot.ts` owns the frozen state and binds selections/plans to it.
+- `snapshot.ts` owns the frozen state, rejects judged queries synchronously, and binds selections/plans to it.
 - `decision.ts` validates outcome definitions, probability distributions, and provenance; it derives immutable decision results.
+- `judgment.ts` defines judgments (name, version, evaluator, decision, instructions, projection) and `ruleEvaluator`.
+- `canonical.ts` serializes JSON per RFC 8785 and hashes it with WebCrypto SHA-256.
+- `cache.ts` provides the in-memory decision cache.
+- `runtime.ts` is the planner. For each `where` step it:
+  1. evaluates deterministic parts;
+  2. collects pending judgments from undecided nodes;
+  3. deduplicates them by judgment and canonical projected input;
+  4. reads the cache, enforces the budget, and groups the misses by evaluator and input hash;
+  5. calls evaluators in `maxBatchSize` batches;
+  6. verifies each answer's provenance, then re-evaluates the step.
+
+  It also produces `explain` reports.
 - `types.ts`, `errors.ts`, and `index.ts` define the public contract.
 
 Selections never traverse a partially updated document. Mutation application is
 internal and accepts only generated operations. The public API does not ingest
 arbitrary patches or attach a plan to a different snapshot.
 
-Decision parsing is synchronous and independent of selection. Callers supply
-complete distributions and provenance; the runtime performs no model calls.
-Portable decision data contains only the distribution and provenance. A
-definition reconstructs derived values and methods when parsing it.
+Evaluators supply probabilities; they cannot choose targets or edits. Queries
+name judgments rather than embedding prompts or providers, so serialized IR
+stays portable across runtimes. Portable decision data contains only the
+distribution and provenance. A definition reconstructs derived values and
+methods when parsing it. Provider adapters, such as one for Jev, belong in
+separate packages that implement `Evaluator`; the core has no runtime dependencies.
 
 ## Verification contract
 
 Behavior tests cover JSON ownership/validation, nested traversal, predicates,
-portable IR, mutation plans, escaped pointers, safe property handling, and
-immutable application. Decision tests cover distribution completeness, numeric
+sorting and paging, portable IR, mutation plans, escaped pointers, safe property
+handling, and immutable application. Runtime tests cover:
+- deterministic pushdown and `or` pruning;
+- per-object batching and deduplication of equal projections;
+- `maxBatchSize` splitting, cache reuse, and budgets;
+- aborts, evaluator failures, and forged provenance;
+- static validation of judgment references, and `explain` counts.
+
+Decision tests cover distribution completeness, numeric
 validation, tie-breaking, expected scores, provenance, ownership, and JSON round
 trips. The compiler also has direct conflict tests because the current
 downward-only traversal cannot produce overlapping targets.
@@ -82,10 +107,18 @@ Coverage includes all production TypeScript, excluding tests. Required floors ar
 variables, and empty functions.
 
 Consumer fixtures exercise the packed ESM and CommonJS APIs, portable-query
-round trips, mutation application, decision results, and errors. Type fixtures
+round trips, mutation application, decision results, the judgment runtime with a
+cache, and errors. Type fixtures
 cover readonly results, required narrowing, invalid query/mutation arguments,
-and inferred decision outcomes. The browser fixture selects and updates data
-and computes an expected score without Node builtins. All verification commands
+and inferred decision outcomes. The browser fixture selects and updates data,
+computes an expected score, and runs a judged query using WebCrypto, all without
+Node builtins.
+
+`check:docs` concatenates the README's TypeScript examples into one module.
+Types resolve against `source/`. It type-checks that module, bundles and runs it,
+and asserts every `expression; // value` result the README shows. It also
+requires the repository README to match the package README, apart from the
+development-guide link. All verification commands
 must leave tracked source and the lockfile unchanged.
 
 See the package README for the public API, worked examples, JSON data contract,

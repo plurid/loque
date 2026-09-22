@@ -5,10 +5,21 @@ export type JsonObject = { readonly [key: string]: JsonValue };
 export type JsonPointer = string;
 export type PathSegment = string | number;
 
-export type ExpressionIR =
+/** Expressions computed from the current node alone, without evaluators. */
+export type DeterministicExpressionIR =
     | { readonly op: 'current' }
     | { readonly op: 'field'; readonly path: readonly PathSegment[] }
     | { readonly op: 'literal'; readonly value: JsonValue };
+
+/** Values read from a named judgment of a deterministic input. */
+export type JudgmentExpressionIR =
+    | {
+        readonly op: 'probability'; readonly judgment: string;
+        readonly input: DeterministicExpressionIR; readonly outcome: DecisionValue;
+    }
+    | { readonly op: 'decision' | 'expected'; readonly judgment: string; readonly input: DeterministicExpressionIR };
+
+export type ExpressionIR = DeterministicExpressionIR | JudgmentExpressionIR;
 
 export type ComparisonOperator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte';
 export type PredicateIR =
@@ -22,7 +33,11 @@ export type QueryStepIR =
     | { readonly op: 'field'; readonly key: string }
     | { readonly op: 'index'; readonly index: number }
     | { readonly op: 'each' }
-    | { readonly op: 'where'; readonly predicate: PredicateIR };
+    | { readonly op: 'where'; readonly predicate: PredicateIR }
+    | { readonly op: 'sort'; readonly by: DeterministicExpressionIR; readonly direction: SortDirection }
+    | { readonly op: 'skip' | 'limit'; readonly count: number };
+
+export type SortDirection = 'asc' | 'desc';
 
 export type QueryIR = { readonly version: 1; readonly steps: readonly QueryStepIR[] };
 
@@ -31,6 +46,10 @@ export interface Query {
     index(index: number): Query;
     each(): Query;
     where(predicate: PredicateIR): Query;
+    /** Stable sort: numbers, then strings, then nodes without a sortable key. */
+    sort(by: DeterministicExpressionIR, direction?: SortDirection): Query;
+    skip(count: number): Query;
+    limit(count: number): Query;
     toIR(): QueryIR;
 }
 
@@ -125,4 +144,136 @@ export interface ChoiceDecision<T extends string = string> extends DecisionDefin
 export interface ScoreDecision<T extends number = number> extends DecisionDefinition<T> {
     readonly kind: 'score';
     parse(input: unknown): ScoreDecisionResult<T>;
+}
+
+/** A named, versioned question about part of a node, answered by one evaluator. */
+export interface Judgment<T extends DecisionValue = DecisionValue> {
+    readonly name: string;
+    readonly version: string;
+    readonly evaluator: string;
+    readonly decision: DecisionDefinition<T>;
+    /** Opaque JSON passed to the evaluator, such as question text and criteria. */
+    readonly instructions: JsonValue;
+    /** The state sent to the evaluator; also its cache identity. */
+    project(value: JsonValue): JsonValue;
+}
+
+export interface JudgmentOptions<T extends DecisionValue = DecisionValue> {
+    readonly name: string;
+    readonly version: string;
+    readonly evaluator: string;
+    readonly decision: DecisionDefinition<T>;
+    readonly instructions?: unknown;
+    readonly project?: (value: JsonValue) => unknown;
+}
+
+export interface EvaluationQuestion {
+    readonly judgment: string;
+    readonly judgmentVersion: string;
+    readonly kind: DecisionDefinition['kind'];
+    readonly outcomes: readonly DecisionValue[];
+    readonly instructions: JsonValue;
+}
+
+/** One projected state and every question asked about it in this call. */
+export interface EvaluationGroup {
+    readonly inputHash: string;
+    readonly input: JsonValue;
+    readonly questions: readonly EvaluationQuestion[];
+}
+
+export interface EvaluationContext {
+    readonly signal?: AbortSignal;
+}
+
+export interface Evaluator {
+    readonly name: string;
+    readonly version: string;
+    /** Maximum number of groups per call; unlimited when omitted. */
+    readonly maxBatchSize?: number;
+    /** Return decision data (distribution and provenance) per question, per group. */
+    evaluate(
+        groups: readonly EvaluationGroup[], context: EvaluationContext,
+    ): Promise<readonly (readonly unknown[])[]> | readonly (readonly unknown[])[];
+}
+
+export interface RuleEvaluatorOptions {
+    readonly name: string;
+    readonly version: string;
+    readonly model: string;
+    readonly maxBatchSize?: number;
+    decide(
+        input: JsonValue, question: EvaluationQuestion,
+    ): readonly DecisionProbability[] | Promise<readonly DecisionProbability[]>;
+    /** Clock for provenance timestamps; defaults to the current time. */
+    now?(): Date;
+}
+
+/** Stores decision data by content-addressed key; values are validated when read. */
+export interface DecisionCache {
+    get(key: string): unknown;
+    set(key: string, data: DecisionData): void | Promise<void>;
+}
+
+export interface MemoryCache extends DecisionCache {
+    readonly size: number;
+    clear(): void;
+}
+
+export interface RuntimeOptions {
+    readonly judgments: readonly Judgment[];
+    readonly evaluators: readonly Evaluator[];
+    readonly cache?: DecisionCache;
+}
+
+export interface SelectOptions {
+    /** Upper bound on uncached evaluations; exceeding it fails before calling evaluators. */
+    readonly maxEvaluations?: number;
+    readonly signal?: AbortSignal;
+}
+
+/** A decision consulted while filtering the node at `path`. */
+export interface JudgedDecision {
+    readonly path: JsonPointer;
+    readonly judgment: string;
+    readonly decision: DecisionResult;
+}
+
+export interface EvaluationStats {
+    readonly evaluations: number;
+    readonly cacheHits: number;
+    readonly calls: number;
+}
+
+export interface JudgedSelection extends Selection {
+    decisions(): readonly JudgedDecision[];
+    readonly stats: EvaluationStats;
+}
+
+export interface ExplainStep {
+    readonly op: QueryStepIR['op'];
+    readonly input: number;
+    /** An upper bound once an earlier or current step has undecided nodes. */
+    readonly output: number;
+    readonly judgments?: {
+        readonly needed: number;
+        readonly cached: number;
+        readonly uncached: number;
+        readonly calls: number;
+    };
+}
+
+export interface Explanation {
+    readonly steps: readonly ExplainStep[];
+    readonly matches: number;
+    /** False when uncached judgments leave counts as upper bounds. */
+    readonly exact: boolean;
+    readonly evaluations: number;
+    readonly calls: number;
+}
+
+export interface Runtime {
+    select(snapshot: Snapshot, query: Query, options?: SelectOptions): Promise<JudgedSelection>;
+    /** Counts steps, cache hits, and required calls without calling evaluators. */
+    explain(snapshot: Snapshot, query: Query): Promise<Explanation>;
 }

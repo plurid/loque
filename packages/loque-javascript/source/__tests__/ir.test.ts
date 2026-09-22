@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-    and, current, eq, exists, field, fromIR, isIn, literal, not, or, query, snapshot,
+    and, current, decision, eq, exists, expected, field, fromIR, gt, isIn, literal, not, or, probability, query, snapshot,
     type JsonValue, type PredicateIR, type Query,
 } from '../index';
 import { expectError, expectFrozen } from './helpers';
@@ -125,5 +125,44 @@ describe('portable builders and IR', () => {
     it('supports JSON literals containing operator-like keys as plain data', () => {
         const value: JsonValue = { op: 'anything', version: 99, left: [null] };
         expect(snapshot([value]).select(query().each().where(eq(current(), literal(value)))).values()).toEqual([value]);
+    });
+
+    it('round-trips judgment expressions and paging steps', () => {
+        const built = query().each()
+            .where(and(gt(probability('fraud', true, field('order')), literal(0.9)), eq(decision('intent'), literal('refund'))))
+            .where(gt(expected('urgency'), literal(3)))
+            .sort(field('total'), 'desc').skip(2).limit(5);
+        expect(built.toIR().steps.slice(2)).toEqual([
+            { op: 'where', predicate: { op: 'gt', left: { op: 'expected', judgment: 'urgency', input: { op: 'current' } }, right: { op: 'literal', value: 3 } } },
+            { op: 'sort', by: { op: 'field', path: ['total'] }, direction: 'desc' },
+            { op: 'skip', count: 2 },
+            { op: 'limit', count: 5 },
+        ]);
+        expect(fromIR(JSON.parse(JSON.stringify(built.toIR()))).toIR()).toEqual(built.toIR());
+        expect(query().sort(current()).toIR().steps[0]).toEqual({ op: 'sort', by: { op: 'current' }, direction: 'asc' });
+    });
+
+    const judged = { op: 'decision', judgment: 'intent', input: { op: 'current' } };
+    it.each([
+        [{ op: 'sort', by: { op: 'current' } }, '/direction'],
+        [{ op: 'sort', by: { op: 'current' }, direction: 'up' }, '/direction'],
+        [{ op: 'sort', by: judged, direction: 'asc' }, '/by/op'],
+        [{ op: 'skip', count: -1 }, '/count'],
+        [{ op: 'limit', count: 1.5 }, '/count'],
+        [{ op: 'limit' }, '/count'],
+        [{ op: 'where', predicate: { op: 'exists', value: { ...judged, judgment: ' ' } } }, '/predicate/value/judgment'],
+        [{ op: 'where', predicate: { op: 'exists', value: { ...judged, input: judged } } }, '/predicate/value/input/op'],
+        [{ op: 'where', predicate: { op: 'exists', value: { ...judged, outcome: 1 } } }, '/predicate/value/outcome'],
+        [{ op: 'where', predicate: { op: 'exists', value: { ...judged, op: 'probability' } } }, '/predicate/value/outcome'],
+        [{ op: 'where', predicate: { op: 'exists', value: { ...judged, op: 'probability', outcome: null } } }, '/predicate/value/outcome'],
+    ])('rejects malformed judgment and paging IR %#', (step, path) => {
+        expectError(() => fromIR({ version: 1, steps: [step] }), 'INVALID_QUERY', `/steps/0${path}`);
+    });
+
+    it('rejects nested judgments and invalid builder arguments', () => {
+        expectError(() => probability('a', true, decision('b') as never), 'INVALID_QUERY', '/input/op');
+        expectError(() => probability({} as never, true), 'INVALID_QUERY', '/judgment');
+        expectError(() => query().limit(-1), 'INVALID_QUERY', '/steps/0/count');
+        expectError(() => query().sort(field('a'), 'up' as never), 'INVALID_QUERY', '/steps/0/direction');
     });
 });

@@ -1,3 +1,8 @@
+> **Historical:** these notes describe the Loque 1 text locator syntax, which was
+> removed. Loque 2 queries are built with the TypeScript builders or the JSON IR
+> described in the [README](../../README.md). The design discussion behind the
+> change is in [chats/loque-jev-chat.md](../../chats/loque-jev-chat.md).
+
 the locator is of shape
 
     collection.document|collection
