@@ -6,13 +6,16 @@ import type {
 
 export function shape(
     value: JsonValue, keys: readonly string[], path: string, code: LoqueErrorCode = 'INVALID_QUERY',
+    optional: readonly string[] = [],
 ): asserts value is JsonObject {
     if (!isObject(value)) throw new LoqueError(code, 'Expected an object', path);
     for (const key of keys) {
         if (!Object.hasOwn(value, key)) throw new LoqueError(code, `Missing ${key}`, appendPointer(path, key));
     }
     for (const key of Object.keys(value)) {
-        if (!keys.includes(key)) throw new LoqueError(code, `Unsupported field ${key}`, appendPointer(path, key));
+        if (!keys.includes(key) && !optional.includes(key)) {
+            throw new LoqueError(code, `Unsupported field ${key}`, appendPointer(path, key));
+        }
     }
 }
 

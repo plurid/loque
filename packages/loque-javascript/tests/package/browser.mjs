@@ -28,3 +28,8 @@ const judged = await rt.select(state, loque.query().field('records').each()
     .where(loque.eq(loque.decision('flag'), loque.literal(true))));
 export const judgedPaths = judged.paths();
 export const judgedStats = judged.stats;
+const run = await rt.run(state, loque.program({
+    query: loque.query().field('records').each().where(loque.eq(loque.decision('flag'), loque.literal(true))),
+    mutation: { op: 'merge', value: { reviewed: true } },
+}), { capability: loque.capability({ judgments: ['flag'], write: ['/records/*/reviewed'], mutations: ['merge'] }) });
+export const programOperations = run.report.operations;

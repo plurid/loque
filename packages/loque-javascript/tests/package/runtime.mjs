@@ -120,7 +120,27 @@ for (const [format, api] of [['ESM', esm], ['CommonJS', commonjs]]) {
     assert.throws(() => orders.select(suspicious), error => error instanceof api.LoqueError && error.code === 'INVALID_QUERY');
     await assert.rejects(rt.select(loque.snapshot({ orders: [{ total: 5000, note: 'new' }] }), suspicious, { maxEvaluations: 0 }),
         error => error instanceof api.LoqueError && error.code === 'BUDGET_EXCEEDED');
-    console.log(`${format}: snapshots, queries, plans, decisions, and the judgment runtime passed`);
+
+    const agentProgram = loque.programFromIR(JSON.parse(JSON.stringify(loque.program({
+        query: loque.query().field('orders').each().where(loque.gte(loque.probability('fraud', true), loque.literal(0.95))),
+        mutation: { op: 'merge', value: { review: true } },
+        limits: { maxMatches: 5 },
+    }).toIR())));
+    const guard = loque.capability({
+        read: ['/orders/*/total'], write: ['/orders/*/review'], deny: ['/orders/*/note'],
+        judgments: ['fraud'], mutations: ['merge'],
+    });
+    const run = await rt.run(orders, agentProgram, { capability: guard });
+    assert.deepEqual(run.report.paths, ['/orders/0', '/orders/1']);
+    assert.equal(run.report.values, undefined);
+    assert.equal(run.plan.apply().value.orders[1].review, true);
+    assert.deepEqual(guard.check(loque.program({ query: loque.query().field('orders').each().field('note') }))
+        .map(item => item.kind), ['read']);
+    await assert.rejects(rt.run(orders, loque.program({ query: loque.query().field('orders') }), { capability: guard }),
+        error => error instanceof api.LoqueError && error.code === 'CAPABILITY_DENIED');
+    assert.equal(loque.programSchema.properties.version.const, 1);
+    assert.equal(loque.querySchema.type, 'object');
+    console.log(`${format}: snapshots, queries, plans, decisions, the judgment runtime, and programs passed`);
 }
 
 // Serialized builders also interoperate across the separately bundled formats.

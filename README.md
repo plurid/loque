@@ -24,7 +24,9 @@ remove matching entries from several nested arrays.
 
 Queries can be saved as JSON and reused with another document. Proposed changes
 are available as JSON Patch operations, so your application can display, log, or
-send the edits before applying them.
+send the edits before applying them. A whole request — query, edit, and limits —
+is one JSON **program**, which an agent can write and your application can check
+against a **capability** before anything runs.
 
 ## Contents
 
@@ -40,6 +42,7 @@ send the edits before applying them.
 - [Work with probabilistic decisions](#work-with-probabilistic-decisions)
 - [Use the results in TypeScript](#use-the-results-in-typescript)
 - [Use judgments in queries](#use-judgments-in-queries)
+- [Let agents propose changes](#let-agents-propose-changes)
 - [Data and execution model](#data-and-execution-model)
 - [Handle errors](#handle-errors)
 - [API reference](#api-reference)
@@ -993,6 +996,165 @@ input share a group, which suits providers that answer several questions about
 one state in a single request. Calls to different evaluators, and batches split
 by `maxBatchSize`, run concurrently.
 
+## Let agents propose changes
+
+A **program** is one JSON document: a query, an optional mutation, and optional
+limits. It contains no code, so a model can write it, and your application can
+validate it, check what it touches, and run it without granting the model
+anything else. An agent might send this:
+
+```ts
+import { capability, programFromIR, programSchema } from '@plurid/loque';
+
+const proposal = programFromIR({
+    version: 1,
+    query: {
+        version: 1,
+        steps: [
+            { op: 'field', key: 'orders' },
+            { op: 'each' },
+            {
+                op: 'where',
+                predicate: {
+                    op: 'and',
+                    predicates: [
+                        { op: 'gt', left: { op: 'field', path: ['total'] }, right: { op: 'literal', value: 1000 } },
+                        {
+                            op: 'gte',
+                            left: { op: 'probability', judgment: 'fraud', input: { op: 'current' }, outcome: true },
+                            right: { op: 'literal', value: 0.95 },
+                        },
+                    ],
+                },
+            },
+        ],
+    },
+    mutation: { op: 'merge', value: { review: true } },
+    limits: { maxMatches: 50 },
+});
+```
+
+`programFromIR` validates and copies the document with the same rules as
+`fromIR`. In code, `program({ query, mutation, limits })` builds the same
+document from a query builder.
+
+### Grant a capability
+
+A **capability** states what programs may read, write, judge, and spend.
+Everything not granted is denied:
+
+```ts
+const support = capability({
+    read: ['/orders/*/id', '/orders/*/total'],
+    write: ['/orders/*/review'],
+    deny: ['/orders/*/note'],
+    judgments: ['fraud'],
+    mutations: ['merge'],
+    maxMatches: 100,
+    maxEvaluations: 1000,
+});
+
+support.check(proposal);
+// []
+```
+
+Patterns are JSON Pointers in which `*` matches any one segment; a pattern
+grants its whole subtree. `check` analyzes the program without data and returns
+every violation. A program reading notes is rejected:
+
+```ts
+const snooping = programFromIR({ version: 1, query: query().field('orders').each().field('note').toIR() });
+
+support.check(snooping);
+// [{ kind: 'read', path: '/query', location: '/orders/*/note', message: 'Location is not readable' }]
+```
+
+The rules:
+
+- **Reads.** Every `field` or `current` expression in a predicate or sort key
+  reads its location. A program without a mutation also reads the locations it
+  selects, because it returns their values. A read must be covered by a `read`
+  pattern and must not overlap a `deny` pattern at, above, or below it, so
+  comparing or returning a whole order requires every part of the order to be
+  readable. There is no redaction: what is returned is what was authorized.
+- **Judgments.** Each judgment named in the query must be listed. The judgment's
+  own projection decides what its evaluator sees; above, the fraud evaluator
+  reads notes that the agent cannot.
+- **Writes.** The mutation kind must be listed. `merge` writes each payload key
+  below every selected location; `replace` and `remove` write the selected
+  location. Writes must be covered by `write` and must not overlap `deny`.
+- **Wildcards.** An `.each()` step can reach any key, so it is covered only by a
+  `*` pattern segment, never by a list of concrete indices.
+
+Traversal itself is not a read, and paths of selected locations are reported.
+
+### Run a program
+
+`rt.run` validates the program, checks the capability, selects, enforces
+limits, and plans the mutation. It never applies the plan; that remains your
+decision:
+
+```ts
+const outcome = await rt.run(payments, proposal, { capability: support });
+
+outcome.report.paths;
+// ['/orders/0', '/orders/3']
+
+outcome.report.operations;
+// [
+//     { op: 'add', path: '/orders/0/review', value: true },
+//     { op: 'add', path: '/orders/3/review', value: true },
+// ]
+
+outcome.report.stats;
+// { evaluations: 0, cacheHits: 2, calls: 0 }
+
+const approved = outcome.plan?.apply();
+```
+
+`outcome.report` is readonly JSON to send back to the agent: `matchCount`,
+`paths`, `operations`, `decisions` (path, judgment, most probable value, and
+distribution), and `stats`. Programs without a mutation also report `values`;
+programs with one report paths and operations only, which is why writing
+`review` above does not require reading whole orders. `outcome.selection` and
+`outcome.plan` are the usual selection and mutation plan.
+
+The limits in effect are the stricter of the program's own `limits` and the
+capability's. Violations throw `CAPABILITY_DENIED` before any data is read or
+evaluator called; too many matches or operations throw `LIMIT_EXCEEDED`, and too
+many uncached judgments throw `BUDGET_EXCEEDED`:
+
+```ts
+const everything = programFromIR({ version: 1, query: query().field('orders').each().field('id').toIR() });
+const tight = capability({ read: ['/orders/*/id'], maxMatches: 3 });
+
+const refused = await rt.run(payments, everything, { capability: tight }).catch(error => error.code);
+
+refused;
+// 'LIMIT_EXCEEDED'
+```
+
+### Describe programs to a model
+
+`programSchema` is a JSON Schema (2020-12) for program documents, with
+descriptions for each node. Use it wherever a model accepts a schema, such as a
+tool's input schema or structured output:
+
+```ts
+const proposeChange = {
+    name: 'propose_change',
+    description: 'Propose a read or an edit of the orders document as a Loque program.',
+    input_schema: programSchema,
+};
+
+programSchema.required;
+// ['version', 'query']
+```
+
+The schema and the validator accept the same documents; the test suite checks
+both against the same valid and malformed examples. `querySchema` describes a
+query alone.
+
 ## Data and execution model
 
 Loque accepts JSON trees:
@@ -1055,6 +1217,10 @@ try {
 | `INVALID_JUDGMENT` | Invalid judgment or evaluator definition, duplicate names, non-JSON projection | Location inside the options, or inside the projected value |
 | `EVALUATION_FAILED` | Evaluator threw or rejected, returned the wrong number of answers, or the signal was aborted | `''`, or the group index; the original error is `cause` |
 | `BUDGET_EXCEEDED` | More uncached evaluations needed than `maxEvaluations` | `''` |
+| `INVALID_PROGRAM` | Unsupported program version, unknown field, invalid limit | Location inside the program; nested query and mutation errors keep their codes with paths under `/query` and `/mutation` |
+| `INVALID_CAPABILITY` | Malformed pattern, unknown mutation kind, invalid limit, or a capability not created by `capability()` | Location inside the options |
+| `CAPABILITY_DENIED` | A program reads, writes, judges, or mutates outside its capability | The first violation's location in the program; `check` lists them all |
+| `LIMIT_EXCEEDED` | More matches or operations than allowed | `/query` or `/mutation` |
 
 Paths use JSON Pointer; `''` means the root. Use the code for programmatic handling
 and the message for additional context. A valid query finding no matches returns
@@ -1085,6 +1251,13 @@ an empty selection. It does not throw.
 | `runtime({ judgments, evaluators, cache? })` | A `Runtime` |
 | `rt.select(snapshot, query, options?)` | A promise of a `JudgedSelection`: a `Selection` plus `.decisions()` and `.stats` |
 | `rt.explain(snapshot, query)` | A promise of an `Explanation` |
+| `program({ query, mutation?, limits? })` | A `Program`; `query` is a builder or IR |
+| `programFromIR(input: unknown)` | A validated `Program` |
+| `program.toIR()` | Readonly `ProgramIR` |
+| `capability(options)` | A `Capability` with normalized `.options` and `.check(program)` |
+| `capability.check(program)` | Readonly `Violation[]`, empty when allowed |
+| `rt.run(snapshot, program, { capability?, signal? })` | A promise of a `ProgramResult` with `selection`, `plan?`, and `report` |
+| `programSchema`, `querySchema` | Frozen JSON Schema (2020-12) documents |
 
 The query methods are `.field(key)`, `.index(index)`, `.each()`,
 `.where(predicate)`, `.sort(by, direction?)`, `.skip(count)`, and
@@ -1134,10 +1307,14 @@ namespace.query();
 | `DecisionResult`, `ScoreDecisionResult` | Immutable probability results and numeric expectations |
 | `Judgment`, `JudgmentOptions`, `Evaluator`, `EvaluationGroup`, `EvaluationQuestion`, `EvaluationContext`, `RuleEvaluatorOptions` | Judgment definitions and the evaluator contract |
 | `Runtime`, `RuntimeOptions`, `SelectOptions`, `JudgedSelection`, `JudgedDecision`, `EvaluationStats`, `Explanation`, `ExplainStep`, `DecisionCache`, `MemoryCache` | Runtime execution, auditing, planning, and caching |
+| `Program`, `ProgramIR`, `ProgramOptions`, `ProgramLimits`, `ProgramResult`, `ProgramReport`, `ReportedDecision`, `RunOptions` | Programs, their execution, and agent-facing reports |
+| `Capability`, `CapabilityOptions`, `MutationKind`, `Violation` | Capabilities and their violations |
 
 ### IR node shapes
 
-A query is `{ version: 1, steps: [...] }`. The exported types define these nodes:
+A query is `{ version: 1, steps: [...] }`, and a program is
+`{ version: 1, query, mutation?, limits? }` with limits `maxMatches`,
+`maxEvaluations`, and `maxOperations`. The exported types define these nodes:
 
 | Node | Shape |
 | --- | --- |

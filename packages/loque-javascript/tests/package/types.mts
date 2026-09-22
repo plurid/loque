@@ -9,6 +9,8 @@ import loque, {
     judgment, runtime, ruleEvaluator, memoryCache, probability as chance, decision as judged, expected as mean, gte,
     type Judgment, type Runtime, type JudgedSelection, type Explanation, type Evaluator, type MemoryCache,
     type ExpressionIR, type DeterministicExpressionIR, type EvaluationStats, type JudgedDecision,
+    program, programFromIR, capability, programSchema,
+    type Program, type ProgramIR, type Capability, type Violation, type ProgramResult, type ProgramReport,
 } from '@plurid/loque';
 
 // Named interfaces need no index signature: input is validated at runtime.
@@ -86,7 +88,23 @@ export async function runJudged(): Promise<void> {
     void [used, stats, plan, explanation.exact, cache.size];
 }
 
+const agent: Program = program({ query: paged, mutation: { op: 'merge', value: { review: true } }, limits: { maxMatches: 5 } });
+const portableProgram: ProgramIR = programFromIR(JSON.parse(JSON.stringify(agent.toIR()))).toIR();
+const guard: Capability = capability({ read: ['/records/*'], write: ['/records/*/review'], mutations: ['merge'], judgments: ['intent'] });
+const violations: readonly Violation[] = guard.check(agent);
+const schemaVersion: JsonValue = programSchema.properties;
+export async function runProgram(): Promise<void> {
+    const result: ProgramResult = await rt.run(state, agent, { capability: guard });
+    const report: ProgramReport = result.report;
+    const next: Snapshot | undefined = result.plan?.apply();
+    void [report.values, next, portableProgram, violations, schemaVersion];
+}
+
 export function rejectInvalidUsage(): void {
+    // @ts-expect-error Capabilities grant only the three mutation kinds.
+    capability({ mutations: ['move'] });
+    // @ts-expect-error Reports are readonly.
+    void (async () => { (await rt.run(state, agent)).report.paths.push('/'); })();
     // @ts-expect-error Judgment outcomes are inferred from the definition.
     chance(intent, 'unknown');
     // @ts-expect-error Expected values need a numeric judgment.

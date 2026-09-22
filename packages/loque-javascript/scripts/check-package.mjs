@@ -94,6 +94,7 @@ try {
         assert.equal(browser.expectedScore, 1.75);
         assert.deepEqual(browser.judgedPaths, ['/records/0']);
         assert.deepEqual(browser.judgedStats, { evaluations: 1, cacheHits: 0, calls: 1 });
+        assert.deepEqual(browser.programOperations, [{ op: 'add', path: '/records/0/reviewed', value: true }]);
 
         const manifest = JSON.parse(await readFile(join(installedPackage, 'package.json'), 'utf8'));
         assert.equal(manifest.engines.node, '>=22');

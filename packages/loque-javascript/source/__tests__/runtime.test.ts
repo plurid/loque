@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
     and, booleanDecision, choiceDecision, decision, eq, exists, expected, field, gt, gte, isIn, judgment, literal, lt,
-    memoryCache, not, or, probability, query, ruleEvaluator, runtime, scoreDecision, snapshot,
+    capability, memoryCache, not, or, probability, program, programFromIR, query, ruleEvaluator, runtime, scoreDecision,
+    snapshot,
     type EvaluationGroup, type Evaluator, type JsonObject, type JsonValue,
 } from '../index';
 import { expectError } from './helpers';
@@ -298,5 +299,85 @@ describe('judgment runtime', () => {
         expect(selection.values()).toEqual(['stolen', 'stolen']);
         expect(project).toHaveBeenCalledTimes(2);
         expect(evaluate.mock.calls[0][0]).toHaveLength(2);
+    });
+
+    describe('programs', () => {
+        const guard = capability({
+            read: ['/orders/*/id', '/orders/*/total'], write: ['/orders/*/review'], deny: ['/orders/*/note'],
+            judgments: ['fraud'], mutations: ['merge'], maxMatches: 3,
+        });
+        const review = program({ query: orders.where(suspicious), mutation: { op: 'merge', value: { review: true } } });
+
+        it('plans a checked mutation and reports JSON for the agent', async () => {
+            const { rt, evaluate } = setup();
+            const state = snapshot(data);
+            const result = await rt.run(state, programFromIR(JSON.parse(JSON.stringify(review.toIR()))), { capability: guard });
+            expect(result.report).toEqual({
+                matchCount: 2,
+                paths: ['/orders/0', '/orders/3'],
+                operations: [
+                    { op: 'add', path: '/orders/0/review', value: true },
+                    { op: 'add', path: '/orders/3/review', value: true },
+                ],
+                decisions: [
+                    { path: '/orders/0', judgment: 'fraud', value: true, distribution: [
+                        { value: false, probability: expect.closeTo(0.03) }, { value: true, probability: 0.97 }] },
+                    { path: '/orders/2', judgment: 'fraud', value: false, distribution: [
+                        { value: false, probability: 0.9 }, { value: true, probability: 0.1 }] },
+                    { path: '/orders/3', judgment: 'fraud', value: true, distribution: [
+                        { value: false, probability: expect.closeTo(0.03) }, { value: true, probability: 0.97 }] },
+                ],
+                stats: { evaluations: 2, cacheHits: 0, calls: 1 },
+            });
+            expect(JSON.parse(JSON.stringify(result.report))).toEqual(JSON.parse(JSON.stringify(result.report)));
+            expect(Object.isFrozen(result.report)).toBe(true);
+            expect(result.selection.count()).toBe(2);
+            expect(result.plan!.apply().select(orders.field('review')).values()).toEqual([true, true]);
+            expect(evaluate).toHaveBeenCalledTimes(1);
+        });
+
+        it('returns values only for read programs', async () => {
+            const { rt } = setup();
+            const ids = program({ query: orders.where(gt(field('total'), literal(2000))).field('id') });
+            const result = await rt.run(snapshot(data), ids, { capability: guard });
+            expect(result.plan).toBeUndefined();
+            expect(result.report).toMatchObject({ matchCount: 2, values: ['o-3', 'o-4'], operations: [] });
+        });
+
+        it('rejects capability violations before touching data or evaluators', async () => {
+            const { rt, evaluate } = setup();
+            const leak = program({ query: orders.where(gte(probability(fraud, true), literal(0.5))).field('note') });
+            await expect(rt.run(snapshot(data), leak, { capability: guard })).rejects.toMatchObject({
+                code: 'CAPABILITY_DENIED', path: '/query', message: expect.stringContaining('(1 violation)'),
+            });
+            const worse = program({ query: orders.field('note'), mutation: { op: 'remove' } });
+            await expect(rt.run(snapshot(data), worse, { capability: guard })).rejects.toMatchObject({
+                code: 'CAPABILITY_DENIED', path: '/mutation/op', message: expect.stringContaining('(2 violations)'),
+            });
+            expect(evaluate).not.toHaveBeenCalled();
+            await expect(rt.run(snapshot(data), review, { capability: {} as never }))
+                .rejects.toMatchObject({ code: 'INVALID_CAPABILITY' });
+            await expect(rt.run(snapshot(data), {} as never)).rejects.toMatchObject({ code: 'INVALID_PROGRAM' });
+        });
+
+        it('applies the stricter of program and capability limits', async () => {
+            const { rt, evaluate } = setup();
+            const state = snapshot(data);
+            const all = program({ query: orders.field('id') });
+            await expect(rt.run(state, all, { capability: guard }))
+                .rejects.toMatchObject({ code: 'LIMIT_EXCEEDED', path: '/query' });
+            expect((await rt.run(state, all)).report.matchCount).toBe(4);
+            const limited = program({ query: orders.where(suspicious), limits: { maxEvaluations: 1 } });
+            await expect(rt.run(state, limited)).rejects.toMatchObject({ code: 'BUDGET_EXCEEDED' });
+            const strict = capability({ read: [''], judgments: ['fraud'], maxEvaluations: 1 });
+            await expect(rt.run(state, program({ query: orders.where(suspicious), limits: { maxEvaluations: 9 } }),
+                { capability: strict })).rejects.toMatchObject({ code: 'BUDGET_EXCEEDED' });
+            expect(evaluate).not.toHaveBeenCalled();
+            const merge = program({
+                query: orders.where(suspicious), mutation: { op: 'merge', value: { review: true, queue: 'risk' } },
+                limits: { maxOperations: 3 },
+            });
+            await expect(rt.run(state, merge)).rejects.toMatchObject({ code: 'LIMIT_EXCEEDED', path: '/mutation' });
+        });
     });
 });

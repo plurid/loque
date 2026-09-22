@@ -272,8 +272,95 @@ export interface Explanation {
     readonly calls: number;
 }
 
+export interface ProgramLimits {
+    readonly maxMatches?: number;
+    readonly maxEvaluations?: number;
+    readonly maxOperations?: number;
+}
+
+/** A portable request: select with a query, optionally plan one mutation, within limits. */
+export interface ProgramIR {
+    readonly version: 1;
+    readonly query: QueryIR;
+    readonly mutation?: Mutation;
+    readonly limits?: ProgramLimits;
+}
+
+export interface ProgramOptions {
+    readonly query: Query | QueryIR;
+    readonly mutation?: Mutation;
+    readonly limits?: ProgramLimits;
+}
+
+export interface Program {
+    toIR(): ProgramIR;
+}
+
+export type MutationKind = Mutation['op'];
+
+/** What programs may read, write, judge, and spend. Patterns are JSON Pointers where `*` matches one segment. */
+export interface CapabilityOptions {
+    readonly read?: readonly string[];
+    readonly write?: readonly string[];
+    readonly deny?: readonly string[];
+    readonly judgments?: readonly string[];
+    readonly mutations?: readonly MutationKind[];
+    readonly maxMatches?: number;
+    readonly maxEvaluations?: number;
+    readonly maxOperations?: number;
+}
+
+export interface Violation {
+    readonly kind: 'read' | 'write' | 'judgment' | 'mutation';
+    /** Location inside the program document. */
+    readonly path: JsonPointer;
+    /** The data location pattern involved; `*` marks any segment. */
+    readonly location: string;
+    readonly message: string;
+}
+
+export interface Capability {
+    /** Normalized options: every list present, limits only when set. */
+    readonly options: Required<Pick<CapabilityOptions, 'read' | 'write' | 'deny' | 'judgments' | 'mutations'>>
+        & Pick<CapabilityOptions, 'maxMatches' | 'maxEvaluations' | 'maxOperations'>;
+    /** Every static violation of this capability by the program; empty when allowed. */
+    check(program: Program): readonly Violation[];
+}
+
+export interface RunOptions {
+    readonly capability?: Capability;
+    readonly signal?: AbortSignal;
+}
+
+export interface ReportedDecision {
+    readonly path: JsonPointer;
+    readonly judgment: string;
+    readonly value: DecisionValue;
+    readonly distribution: readonly DecisionProbability[];
+}
+
+/** JSON describing a run, suitable for returning to the agent that sent the program. */
+export interface ProgramReport {
+    readonly matchCount: number;
+    readonly paths: readonly JsonPointer[];
+    /** Present only for programs without a mutation, whose selected locations were checked as readable. */
+    readonly values?: readonly JsonValue[];
+    readonly operations: readonly PatchOperation[];
+    readonly decisions: readonly ReportedDecision[];
+    readonly stats: EvaluationStats;
+}
+
+export interface ProgramResult {
+    readonly selection: JudgedSelection;
+    /** Present when the program has a mutation; the host decides whether to apply it. */
+    readonly plan?: MutationPlan;
+    readonly report: ProgramReport;
+}
+
 export interface Runtime {
     select(snapshot: Snapshot, query: Query, options?: SelectOptions): Promise<JudgedSelection>;
+    /** Check a program against an optional capability, select, and plan its mutation. */
+    run(snapshot: Snapshot, program: Program, options?: RunOptions): Promise<ProgramResult>;
     /** Counts steps, cache hits, and required calls without calling evaluators. */
     explain(snapshot: Snapshot, query: Query): Promise<Explanation>;
 }

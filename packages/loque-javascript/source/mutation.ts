@@ -3,7 +3,7 @@ import { shape } from './ir';
 import { appendPointer, copyJson, defineValue, freezeJson, isArray, isObject, pointerSegments } from './json';
 import type { JsonObject, JsonValue, Mutation, NodeRef, PatchOperation } from './types';
 
-function mutationIR(input: unknown): Mutation {
+export function mutationIR(input: unknown): Mutation {
     const owned = copyJson(input, 'INVALID_MUTATION');
     if (!isObject(owned)) throw new LoqueError('INVALID_MUTATION', 'Expected a mutation object');
     switch (owned.op) {

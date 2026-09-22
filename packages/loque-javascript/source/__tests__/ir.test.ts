@@ -4,6 +4,7 @@ import {
     type JsonValue, type PredicateIR, type Query,
 } from '../index';
 import { expectError, expectFrozen } from './helpers';
+import { invalidIndices, invalidPredicates, invalidQueries, invalidSteps } from './fixtures';
 
 describe('portable builders and IR', () => {
     it('round-trips a complete query as ordinary JSON', () => {
@@ -55,40 +56,18 @@ describe('portable builders and IR', () => {
         expectFrozen(predicate);
     });
 
-    it.each([
-        [null, ''], [[], ''], [{}, '/version'],
-        [{ version: 2, steps: [] }, '/version'],
-        [{ version: 1, steps: {} }, '/steps'],
-        [{ version: 1, steps: [], extra: true }, '/extra'],
-        [{ version: 1, steps: [null] }, '/steps/0'],
-        [{ version: 1, steps: [{ op: 'unknown' }] }, '/steps/0/op'],
-        [{ version: 1, steps: [{ op: 'field' }] }, '/steps/0/key'],
-        [{ version: 1, steps: [{ op: 'field', key: 1 }] }, '/steps/0/key'],
-        [{ version: 1, steps: [{ op: 'each', extra: true }] }, '/steps/0/extra'],
-    ])('rejects malformed top-level or traversal IR %#', (input, path) => {
+    it.each(invalidQueries)('rejects malformed top-level or traversal IR %#', (input, path) => {
         expectError(() => fromIR(input), 'INVALID_QUERY', path as string);
     });
 
-    it.each([-1, 0.5, Number.MAX_SAFE_INTEGER + 1, '0', null, true])('rejects invalid indices %j', index => {
+    it.each(invalidIndices)('rejects invalid indices %j', index => {
         expectError(() => fromIR({ version: 1, steps: [{ op: 'index', index }] }), 'INVALID_QUERY', '/steps/0/index');
         if (typeof index !== 'string') {
             expectError(() => field('a', index as number), 'INVALID_QUERY', '/path/1');
         }
     });
 
-    it.each([
-        [null, ''], [{ op: 'unknown' }, '/op'],
-        [{ op: 'eq', left: { op: 'current' } }, '/right'],
-        [{ op: 'eq', left: null, right: { op: 'current' } }, '/left'],
-        [{ op: 'eq', left: { op: 'unknown' }, right: { op: 'current' } }, '/left/op'],
-        [{ op: 'exists', value: { op: 'field', path: [] } }, '/value/path'],
-        [{ op: 'exists', value: { op: 'field', path: 'id' } }, '/value/path'],
-        [{ op: 'exists', value: { op: 'current', extra: 1 } }, '/value/extra'],
-        [{ op: 'in', value: { op: 'current' }, values: {} }, '/values'],
-        [{ op: 'and', predicates: {} }, '/predicates'],
-        [{ op: 'or', predicates: [false] }, '/predicates/0'],
-        [{ op: 'not', predicate: {} }, '/predicate/op'],
-    ])('rejects malformed predicates and expressions %#', (predicate, path) => {
+    it.each(invalidPredicates)('rejects malformed predicates and expressions %#', (predicate, path) => {
         expectError(() => fromIR({ version: 1, steps: [{ op: 'where', predicate }] }), 'INVALID_QUERY', `/steps/0/predicate${path}`);
     });
 
@@ -142,20 +121,7 @@ describe('portable builders and IR', () => {
         expect(query().sort(current()).toIR().steps[0]).toEqual({ op: 'sort', by: { op: 'current' }, direction: 'asc' });
     });
 
-    const judged = { op: 'decision', judgment: 'intent', input: { op: 'current' } };
-    it.each([
-        [{ op: 'sort', by: { op: 'current' } }, '/direction'],
-        [{ op: 'sort', by: { op: 'current' }, direction: 'up' }, '/direction'],
-        [{ op: 'sort', by: judged, direction: 'asc' }, '/by/op'],
-        [{ op: 'skip', count: -1 }, '/count'],
-        [{ op: 'limit', count: 1.5 }, '/count'],
-        [{ op: 'limit' }, '/count'],
-        [{ op: 'where', predicate: { op: 'exists', value: { ...judged, judgment: ' ' } } }, '/predicate/value/judgment'],
-        [{ op: 'where', predicate: { op: 'exists', value: { ...judged, input: judged } } }, '/predicate/value/input/op'],
-        [{ op: 'where', predicate: { op: 'exists', value: { ...judged, outcome: 1 } } }, '/predicate/value/outcome'],
-        [{ op: 'where', predicate: { op: 'exists', value: { ...judged, op: 'probability' } } }, '/predicate/value/outcome'],
-        [{ op: 'where', predicate: { op: 'exists', value: { ...judged, op: 'probability', outcome: null } } }, '/predicate/value/outcome'],
-    ])('rejects malformed judgment and paging IR %#', (step, path) => {
+    it.each(invalidSteps)('rejects malformed judgment and paging IR %#', (step, path) => {
         expectError(() => fromIR({ version: 1, steps: [step] }), 'INVALID_QUERY', `/steps/0${path}`);
     });
 

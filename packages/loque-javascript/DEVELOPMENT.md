@@ -72,7 +72,18 @@ threshold those answers and choose edits):
   5. calls evaluators in `maxBatchSize` batches;
   6. verifies each answer's provenance, then re-evaluates the step.
 
-  It also produces `explain` reports.
+  It also produces `explain` reports, and runs programs (`run`): it checks the
+  capability, selects with the stricter evaluation budget, enforces match and
+  operation limits, plans the mutation, and builds the agent report.
+- `program.ts` validates program documents (query, optional mutation, limits),
+  reporting nested errors under `/query` and `/mutation`.
+- `capability.ts` compiles read/write/deny patterns and statically analyzes a
+  program. It tracks the location pattern through `field`/`index`/`each` steps,
+  then checks predicate and sort reads, selected values (read programs only),
+  judgment names, mutation kinds, and written locations. `covers` requires a
+  pattern prefix, where only a pattern `*` matches an `each` wildcard.
+  `overlaps` rejects any deny pattern compatible with an ancestor or descendant.
+- `schema.ts` holds the hand-written JSON Schema for queries and programs.
 - `types.ts`, `errors.ts`, and `index.ts` define the public contract.
 
 Selections never traverse a partially updated document. Mutation application is
@@ -95,7 +106,16 @@ handling, and immutable application. Runtime tests cover:
 - per-object batching and deduplication of equal projections;
 - `maxBatchSize` splitting, cache reuse, and budgets;
 - aborts, evaluator failures, and forged provenance;
-- static validation of judgment references, and `explain` counts.
+- static validation of judgment references, and `explain` counts;
+- program runs: capability denial before evaluation, limits, and reports.
+
+Capability tests cover pattern coverage and overlap, wildcards, denied subtrees,
+predicate/sort/selection reads, judgment and mutation allowlists, and merge-key
+writes. Schema tests compile `programSchema` with Ajv in strict mode. They
+require the schema and the validator to agree: both accept programs built from
+every IR node, and both reject every malformed case in
+`source/__tests__/fixtures.ts`, the same cases the IR tests use. Add new
+malformed cases there so both sides stay in step.
 
 Decision tests cover distribution completeness, numeric
 validation, tie-breaking, expected scores, provenance, ownership, and JSON round
@@ -108,11 +128,11 @@ variables, and empty functions.
 
 Consumer fixtures exercise the packed ESM and CommonJS APIs, portable-query
 round trips, mutation application, decision results, the judgment runtime with a
-cache, and errors. Type fixtures
+cache, programs under a capability, the exported schemas, and errors. Type fixtures
 cover readonly results, required narrowing, invalid query/mutation arguments,
 and inferred decision outcomes. The browser fixture selects and updates data,
-computes an expected score, and runs a judged query using WebCrypto, all without
-Node builtins.
+computes an expected score, and runs a judged query and a program under a
+capability using WebCrypto, all without Node builtins.
 
 `check:docs` concatenates the README's TypeScript examples into one module.
 Types resolve against `source/`. It type-checks that module, bundles and runs it,

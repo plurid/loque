@@ -3,10 +3,12 @@ import { LoqueError } from './errors';
 import { freezeNodes, Pending, traverse, truth, type Judge, type Truth } from './evaluate';
 import { judgmentExpressions, queryOf } from './ir';
 import { isJudgment, nonblank } from './judgment';
+import { programOf } from './program';
+import { violations } from './capability';
 import type {
     DecisionCache, DecisionResult, EvaluationGroup, EvaluationStats, Evaluator, ExplainStep, Explanation,
-    JsonValue, JudgedDecision, JudgedSelection, Judgment, NodeRef, Query, QueryIR, Runtime, RuntimeOptions,
-    ScoreDecisionResult, SelectOptions, Snapshot,
+    JsonValue, JudgedDecision, JudgedSelection, Judgment, NodeRef, Program, ProgramReport, ProgramResult, Query,
+    QueryIR, RunOptions, Runtime, RuntimeOptions, ScoreDecisionResult, SelectOptions, Snapshot,
 } from './types';
 import { selectionOf, snapshotValue } from './snapshot';
 
@@ -106,9 +108,8 @@ export function runtime(options: RuntimeOptions): Runtime {
         invalid('Expected a cache with get and set functions', '/cache');
     }
 
-    async function execute(input: Snapshot, query: Query, options: SelectOptions, dry: boolean) {
+    async function execute(input: Snapshot, ir: QueryIR, options: SelectOptions, dry: boolean) {
         const root = snapshotValue(input);
-        const ir = queryOf(query);
         check(ir, judgments);
         const { maxEvaluations = Infinity, signal } = options;
         if (maxEvaluations !== Infinity && !(Number.isSafeInteger(maxEvaluations) && maxEvaluations >= 0)) {
@@ -298,15 +299,52 @@ export function runtime(options: RuntimeOptions): Runtime {
         return { root, nodes: freezeNodes(nodes), decisions, stats, steps, exact, evaluations, calls };
     }
 
+    async function select(input: Snapshot, ir: QueryIR, options: SelectOptions): Promise<JudgedSelection> {
+        const result = await execute(input, ir, options, false);
+        const decisions = Object.freeze(result.decisions);
+        const stats: EvaluationStats = Object.freeze({ ...result.stats });
+        return Object.freeze({ ...selectionOf(result.root, result.nodes), decisions: () => decisions, stats });
+    }
+
     return Object.freeze({
-        async select(input: Snapshot, query: Query, options: SelectOptions = {}): Promise<JudgedSelection> {
-            const result = await execute(input, query, options, false);
-            const decisions = Object.freeze(result.decisions);
-            const stats: EvaluationStats = Object.freeze({ ...result.stats });
-            return Object.freeze({ ...selectionOf(result.root, result.nodes), decisions: () => decisions, stats });
+        select: (input: Snapshot, query: Query, options: SelectOptions = {}) => select(input, queryOf(query), options),
+        async run(input: Snapshot, program: Program, options: RunOptions = {}): Promise<ProgramResult> {
+            const ir = programOf(program);
+            const { capability, signal } = options;
+            if (capability !== undefined) {
+                const found = violations(capability, ir);
+                if (found.length > 0) {
+                    throw new LoqueError('CAPABILITY_DENIED',
+                        `${found[0].message} (${found.length} violation${found.length === 1 ? '' : 's'})`, found[0].path);
+                }
+            }
+            // The stricter of the program's own limits and the host's capability applies.
+            const bound = (key: 'maxMatches' | 'maxEvaluations' | 'maxOperations') =>
+                Math.min(ir.limits?.[key] ?? Infinity, capability?.options[key] ?? Infinity);
+            const selection = await select(input, ir.query, { maxEvaluations: bound('maxEvaluations'), signal });
+            if (selection.count() > bound('maxMatches')) {
+                throw new LoqueError('LIMIT_EXCEEDED',
+                    `Program matched ${selection.count()} nodes; the limit is ${bound('maxMatches')}`, '/query');
+            }
+            const plan = ir.mutation === undefined ? undefined : selection.plan(ir.mutation);
+            if (plan !== undefined && plan.operations.length > bound('maxOperations')) {
+                throw new LoqueError('LIMIT_EXCEEDED',
+                    `Program planned ${plan.operations.length} operations; the limit is ${bound('maxOperations')}`, '/mutation');
+            }
+            const report: ProgramReport = Object.freeze({
+                matchCount: selection.count(),
+                paths: selection.paths(),
+                ...(plan === undefined ? { values: selection.values() } : {}),
+                operations: plan?.operations ?? Object.freeze([]),
+                decisions: Object.freeze(selection.decisions().map(({ path, judgment, decision }) => Object.freeze({
+                    path, judgment, value: decision.value, distribution: decision.distribution,
+                }))),
+                stats: selection.stats,
+            });
+            return Object.freeze({ selection, ...(plan === undefined ? {} : { plan }), report });
         },
         async explain(input: Snapshot, query: Query): Promise<Explanation> {
-            const result = await execute(input, query, {}, true);
+            const result = await execute(input, queryOf(query), {}, true);
             return Object.freeze({
                 steps: Object.freeze(result.steps), matches: result.nodes.length, exact: result.exact,
                 evaluations: result.evaluations, calls: result.calls,
